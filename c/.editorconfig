@@ -1,0 +1,2 @@
+[*.{c,h,c++,cc,cpp,cppm,cxx,h,h++,hh,hpp,hxx,inl,ipp,ixx,tlh,tli}]
+cpp_space_pointer_reference_alignment = right
