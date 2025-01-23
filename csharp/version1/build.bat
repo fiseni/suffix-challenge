@@ -1,2 +1,2 @@
 @echo off
-dotnet build -c Release
+dotnet publish version1.csproj -o publish
