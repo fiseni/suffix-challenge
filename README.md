@@ -25,7 +25,7 @@ The challenge is for each record in `parts` to find a match in `masterParts` acc
   - For ties, choose the first `masterPart` in the file.
   
 Output:
-- The app should return the number of matches.
+- The app should print the number of matches.
 - The app should create a `results.txt` file containing matching results:
   - Include all `parts` in the same order as the input.
   - Format: `<part>;<matching masterPart>`
