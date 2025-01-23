@@ -62,6 +62,6 @@ Everyone is welcome to participate in the challenge.
 
 | Command | Mean [s] | Min [s] | Max [s] | Relative |
 |:---|---:|---:|---:|---:|
-| `C#` | 1.555 ± 0.050 | 1.512 | 1.610 | 1.00 |
-| `C# AOT` | 1.459 ± 0.006 | 1.452 | 1.464 | 1.00 |
+| `C# version1` | 1.555 ± 0.050 | 1.512 | 1.610 | 1.00 |
+| `C# version1 AOT` | 1.459 ± 0.006 | 1.452 | 1.464 | 1.00 |
 
