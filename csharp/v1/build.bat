@@ -9,7 +9,7 @@ if exist bin (
 )
 
 if "%~1"=="aot" (
-    dotnet publish version1-aot.csproj -o publish --nologo
+    dotnet publish v1_aot.csproj -o publish --nologo
 ) else (
-    dotnet publish version1.csproj -o publish --nologo
+    dotnet publish v1.csproj -o publish --nologo
 )

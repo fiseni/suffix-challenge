@@ -1,6 +1,6 @@
 ﻿using System.Runtime.CompilerServices;
 
-namespace version1;
+namespace v1;
 
 public class Processor
 {
