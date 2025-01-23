@@ -50,8 +50,6 @@ Output:
 - The repository includes an `expected.txt` file that contains the expected matches. The produced `results.txt` file should be identical to `expected.txt`. 
 - You should not make assumptions based on these specific input files (e.g. size, string length distribution, etc.).
 
-## Benchmark Results
-
 ## Contributions
 
 Everyone is welcome to participate in the challenge. 
@@ -59,3 +57,11 @@ Everyone is welcome to participate in the challenge.
 - Create a directory with the language name (if it doesn't exist) and a sub-directory with your name (or anything).
 - Create a `build.sh`/`build.bat` script that builds the application.
 - Create a `run.sh`/`run.bat` script that runs the application.
+
+## Benchmark Results
+
+| Command | Mean [s] | Min [s] | Max [s] | Relative |
+|:---|---:|---:|---:|---:|
+| `C#` | 1.555 ± 0.050 | 1.512 | 1.610 | 1.00 |
+| `C# AOT` | 1.459 ± 0.006 | 1.452 | 1.464 | 1.00 |
+
