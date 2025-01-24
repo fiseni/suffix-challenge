@@ -1,8 +1,9 @@
 @echo off
 setlocal enabledelayedexpansion
 
-set "working_dir=%cd%"
-set "impl_list_file=%working_dir%\impl_list"
+set script_dir=%~dp0
+set script_dir=%SCRIPT_DIR:~0,-1%
+set "impl_list_file=%script_dir%\impl_list"
 
 if not exist "%impl_list_file%" (
     echo Error: Implementation list file '%impl_list_file%' not found!
@@ -40,14 +41,14 @@ for /f "usebackq tokens=1,2,3,4,5,* delims=:" %%A in ("%impl_list_file%") do (
     if "%%A"=="%1" (
         echo.
         set "found=true"
-        cd %working_dir%\%%C\%%D
+        cd %script_dir%\%%C\%%D
         if errorlevel 1 exit /b 1
         call build.bat %%E > nul
         if errorlevel 1 exit /b 1
         if "%%E"=="" (
-            hyperfine -i --output=pipe --runs 3 --warmup 2 --export-markdown "%working_dir%\benchmarks\%%C_%%D.md" -n "%%B" "run.bat"
+            hyperfine -i --output=pipe --runs 3 --warmup 2 --export-markdown "%script_dir%\benchmarks\%%C_%%D.md" -n "%%B" "run.bat"
         ) else (
-            hyperfine -i --output=pipe --runs 3 --warmup 2 --export-markdown "%working_dir%\benchmarks\%%C_%%D_%%E.md" -n "%%B" "run.bat %%E"
+            hyperfine -i --output=pipe --runs 3 --warmup 2 --export-markdown "%script_dir%\benchmarks\%%C_%%D_%%E.md" -n "%%B" "run.bat %%E"
         )
         if errorlevel 1 exit /b 1
     )

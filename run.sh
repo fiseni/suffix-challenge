@@ -1,7 +1,7 @@
 #!/bin/bash
 
-working_dir="$(pwd)"
-impl_list_file="$working_dir/impl_list"
+script_dir=$(dirname "$(realpath "$0")")
+impl_list_file="$script_dir/impl_list"
 
 if [ ! -f "$impl_list_file" ]; then
   echo "Error: Implementation list file '$impl_list_file' not found!"
@@ -36,12 +36,12 @@ run_impl() {
     if [ "$1" = "$num" ]; then
       echo ""
       found=true
-      cd "$working_dir/$langdir/$subdir"
+      cd "$script_dir/$langdir/$subdir"
       bash build.sh $tag >/dev/null
       if [ "$tag" = "" ]; then
-        hyperfine -i --runs 3 --warmup 2 --export-markdown "$working_dir/benchmarks/${langdir}_${subdir}.md" -n "\"$desc\"" "\"bash run.sh\""
+        hyperfine -i --runs 3 --warmup 2 --export-markdown "$script_dir/benchmarks/${langdir}_${subdir}.md" -n "\"$desc\"" "\"bash run.sh\""
       else
-        hyperfine -i --runs 3 --warmup 2 --export-markdown "$working_dir/benchmarks/${langdir}_${subdir}_${tag}.md" -n "\"$desc\"" "\"bash run.sh $tag\""
+        hyperfine -i --runs 3 --warmup 2 --export-markdown "$script_dir/benchmarks/${langdir}_${subdir}_${tag}.md" -n "\"$desc\"" "\"bash run.sh $tag\""
       fi
       break
     fi
