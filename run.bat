@@ -39,11 +39,17 @@ exit /b 0
 set "found=false"
 for /f "usebackq tokens=1,2,3,4,5,* delims=:" %%A in ("%impl_list_file%") do (
     if "%%A"=="%1" (
+        if not exist "%script_dir%\benchmarks" (
+            mkdir "%script_dir%\benchmarks"
+        )
         echo.
         set "found=true"
         cd %script_dir%\%%C\%%D
         if errorlevel 1 exit /b 1
+        echo Building "%%B" implementation...
         call build.bat %%E > nul
+        echo Build completed.
+        echo.
         if errorlevel 1 exit /b 1
         if "%%E"=="" (
             hyperfine -i --output=pipe --runs 3 --warmup 2 --export-markdown "%script_dir%\benchmarks\%%C_%%D.md" -n "%%B" "run.bat"
@@ -51,9 +57,25 @@ for /f "usebackq tokens=1,2,3,4,5,* delims=:" %%A in ("%impl_list_file%") do (
             hyperfine -i --output=pipe --runs 3 --warmup 2 --export-markdown "%script_dir%\benchmarks\%%C_%%D_%%E.md" -n "%%B" "run.bat %%E"
         )
         if errorlevel 1 exit /b 1
+        call :compare_results "%script_dir%\data\expected.txt" "results.txt"
+        echo -----------------------------------------------------------------------------------------------------------------
     )
 )
 if "!found!"=="false" goto :usage
+exit /b 0
+
+:compare_results
+if not exist "%2" (
+    echo File %2 not found!
+    exit /b 0
+)
+fc "%1" "%2" > nul 2>&1
+if errorlevel 1 (
+    echo Test failed!
+) else (
+    echo Test passed!
+)
+echo.
 exit /b 0
 
 endlocal

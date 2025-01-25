@@ -1,5 +1,5 @@
 #!/bin/bash
-
+ 
 script_dir=$(dirname "$(realpath "$0")")
 impl_list_file="$script_dir/impl_list"
 
@@ -34,21 +34,43 @@ run_impl() {
   found=false
   while IFS=":" read -r num desc langdir subdir tag _; do
     if [ "$1" = "$num" ]; then
+      mkdir -p "$script_dir/benchmarks"
       echo ""
       found=true
       cd "$script_dir/$langdir/$subdir"
+      echo "Building \"$desc\" implementation..."
       bash build.sh $tag >/dev/null
+      echo "Build completed."
+      echo ""
       if [ "$tag" = "" ]; then
-        hyperfine -i --runs 3 --warmup 2 --export-markdown "$script_dir/benchmarks/${langdir}_${subdir}.md" -n "\"$desc\"" "\"bash run.sh\""
+        hyperfine -i --runs 3 --warmup 2 --export-markdown "$script_dir/benchmarks/${langdir}_${subdir}.md" -n "\"$desc\"" "\"./run.sh\""
       else
-        hyperfine -i --runs 3 --warmup 2 --export-markdown "$script_dir/benchmarks/${langdir}_${subdir}_${tag}.md" -n "\"$desc\"" "\"bash run.sh $tag\""
+        hyperfine -i --runs 3 --warmup 2 --export-markdown "$script_dir/benchmarks/${langdir}_${subdir}_${tag}.md" -n "\"$desc\"" "./run.sh $tag"
       fi
+
+      compare_results "$script_dir/data/expected.txt" "results.txt"
+      echo "-----------------------------------------------------------------------------------------------------------------"
       break
     fi
   done < "$impl_list_file"
   if [ "$found" = false ]; then
     usage
   fi
+}
+
+compare_results() {
+  set +e +u +o pipefail
+  if [ ! -f "$2" ]; then
+    echo "File $2 not found!"
+  else
+    diff --strip-trailing-cr -y --suppress-common-lines "$1" "$2" >/dev/null 2>&1
+    if [ "$?" == 0 ]; then
+      echo "Test passed!"
+    else
+      echo "Test failed!"
+    fi
+  fi
+  echo ""
 }
 
 # Validate input
