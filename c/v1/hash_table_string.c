@@ -1,35 +1,14 @@
 #include <stdlib.h>
 #include <stdio.h>
-#include <string.h>
-#include <stdint.h>
 #include <stdbool.h>
 #include <assert.h>
-#include "utils.h"
+#include "common.h"
 #include "hash_table.h"
 
 /* Fati Iseni
 * DO NOT use this implementation as a general purpose hash table.
 * It is tailored for our scenario and it is safe to use only within this context.
 */
-
-static size_t hash(const HTableString *table, const char *key, size_t keyLength) {
-    size_t hash = 0x811C9DC5; // 2166136261
-    for (size_t i = 0; i < keyLength; i++) {
-        hash = (hash * 31) + key[i];
-    }
-    return hash & (table->size - 1);
-}
-
-static bool str_equals_one_length(const char *str1, const char *str2, size_t str2Length) {
-    return strcasecmp(str1, str2) == 0;
-
-    for (size_t i = 0; i < str2Length; i++) {
-        if (str1[i] == '\0' || str1[i] != str2[i]) {
-            return false;
-        }
-    }
-    return true;
-}
 
 HTableString *htable_string_create(size_t size) {
     size_t tableSize = next_power_of_two(size);
@@ -56,9 +35,7 @@ HTableString *htable_string_create(size_t size) {
 static const char *search_internal(const HTableString *table, const char *key, size_t keyLength, size_t index) {
     EntryString *entry = table->buckets[index];
     while (entry) {
-        //if (strcmp(entry->key, key) == 0) {
-        //if (strncmp(entry->key, key, keyLength) == 0) {
-        if (str_equals_one_length(entry->key, key, keyLength)) {
+        if (strcasecmp(entry->key, key) == 0) {
             return entry->value;
         }
         entry = entry->next;
@@ -67,12 +44,12 @@ static const char *search_internal(const HTableString *table, const char *key, s
 }
 
 const char *htable_string_search(const HTableString *table, const char *key, size_t keyLength) {
-    size_t index = hash(table, key, keyLength);
+    size_t index = hash(table->size, key, keyLength);
     return search_internal(table, key, keyLength, index);
 }
 
 void htable_string_insert_if_not_exists(HTableString *table, const char *key, size_t keyLength, const char *value) {
-    size_t index = hash(table, key, keyLength);
+    size_t index = hash(table->size, key, keyLength);
     const char *existing_value = search_internal(table, key, keyLength, index);
     if (existing_value) {
         return;

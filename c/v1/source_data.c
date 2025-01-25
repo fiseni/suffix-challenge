@@ -1,14 +1,20 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <stdbool.h>
 #include <ctype.h>
 #include <assert.h>
-#include "utils.h"
+#include <sys/stat.h>
+#include "common.h"
 #include "source_data.h"
 
 static Part *build_parts(const char *partsPath, size_t *outCount);
 static MasterPart *build_masterParts(const char *masterPartsPath, size_t *outCount);
 static bool populate_masterPart(MasterPart *masterPart, size_t masterPartsIndex, char *code, size_t codeLength, char *block, size_t blockSize, size_t *blockIndexNoHyphens);
+bool str_contains_dash(const char *str, size_t strLength);
+const char *str_trim_in_place(char *src, size_t *outLength);
+void str_remove_char(const char *src, size_t srcLength, char *buffer, size_t bufferSize, char find, size_t *outBufferLength);
+long get_file_size_bytes(const char *filename);
 
 const SourceData *source_data_read(const char *masterPartsPath, const char *partsPath) {
     size_t masterPartsCount = 0;
@@ -22,14 +28,16 @@ const SourceData *source_data_read(const char *masterPartsPath, const char *part
     data->masterPartsCount = masterPartsCount;
     data->parts = parts;
     data->partsCount = partsCount;
+    data->blockMasterPartCodes = masterParts->code;
+    data->blockPartCodes = parts->code;
 
     return data;
 }
 
 void source_data_clean(const SourceData *data) {
     // All strings are allocated from a single block
-    free((void *)data->masterParts->code);
-    free((void *)data->parts->code);
+    free((void *)data->blockMasterPartCodes);
+    free((void *)data->blockPartCodes);
 
     free((void *)data->masterParts);
     free((void *)data->parts);
@@ -75,7 +83,7 @@ static Part *build_parts(const char *partsPath, size_t *outCount) {
                 length--;
             }
             assert(partsIndex < lineCount);
-            parts[partsIndex].code = &block[stringStartIndex];
+            parts[partsIndex].code = str_trim_in_place(&block[stringStartIndex], &length);
             parts[partsIndex].codeLength = length;
             parts[partsIndex].index = partsIndex;
             partsIndex++;
@@ -143,13 +151,13 @@ static bool populate_masterPart(MasterPart *masterPart, size_t masterPartsIndex,
         return false;
     }
 
-    str_to_upper_trim_in_place(code, codeLength, &codeLength);
+    code = (char *)str_trim_in_place(code, &codeLength);
     if (codeLength < MIN_STRING_LENGTH) {
         return false;
     }
 
     masterPart->code = code;
-    masterPart->codeLength= codeLength;
+    masterPart->codeLength = codeLength;
     masterPart->index = masterPartsIndex;
 
     if (str_contains_dash(code, codeLength)) {
@@ -163,13 +171,85 @@ static bool populate_masterPart(MasterPart *masterPart, size_t masterPartsIndex,
         size_t codeNhLength;
         str_remove_char(code, codeLength, codeNh, codeLength, '-', &codeNhLength);
         masterPart->codeNh = codeNh;
-        masterPart->codeNhLength= codeNhLength;
+        masterPart->codeNhLength = codeNhLength;
 
         *blockIndexNoHyphens += codeNhLength + 1; // +1 for null terminator
     }
     else {
-        masterPart->codeNh = code;
-        masterPart->codeNhLength = codeLength;
+        masterPart->codeNh = NULL;
+        masterPart->codeNhLength = 0;
     }
     return true;
+}
+
+long get_file_size_bytes(const char *filename) {
+    assert(filename);
+
+    struct stat st;
+    if (stat(filename, &st) != 0) {
+        perror("stat failed");
+        return -1;
+    }
+    return st.st_size;
+}
+
+bool str_contains_dash(const char *str, size_t strLength) {
+    assert(str);
+
+    for (size_t i = 0; i < strLength; i++) {
+        if (str[i] == '-') {
+            return true;
+        }
+    }
+    return false;
+}
+
+const char *str_trim_in_place(char *src, size_t *outLength) {
+    assert(src);
+    assert(outLength);
+
+    size_t length = *outLength;
+    size_t start = 0;
+    while (start < length && isspace(src[start])) {
+        start++;
+    }
+
+    if (start == length) {
+        src[0] = '\0';
+        *outLength = 0;
+        return src;
+    }
+
+    size_t end = length - 1;
+    while (end > start && isspace(src[end])) {
+        end--;
+    }
+
+    size_t j = 0;
+    for (size_t i = start; i <= end; i++) {
+        src[j++] = src[i];
+    }
+    src[j] = '\0';
+    *outLength = j;
+    return src;
+}
+
+void str_remove_char(const char *src, size_t srcLength, char *buffer, size_t bufferSize, char find, size_t *outBufferLength) {
+    assert(src);
+    assert(buffer);
+    assert(outBufferLength);
+
+    if (bufferSize == 0) {
+        *outBufferLength = 0;
+        return;
+    }
+    size_t j = 0;
+    for (size_t i = 0; i < srcLength && j < bufferSize - 1; i++) {
+        if (src[i] != find) {
+            // We know the chars are ASCII (no need to cast to unaligned char)
+            buffer[j++] = toupper(src[i]);
+        }
+    }
+    buffer[j] = '\0';
+    *outBufferLength = j;
 }

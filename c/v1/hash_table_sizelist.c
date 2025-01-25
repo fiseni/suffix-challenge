@@ -1,37 +1,14 @@
 #include <stdlib.h>
 #include <stdio.h>
-#include <string.h>
-#include <stdint.h>
 #include <stdbool.h>
 #include <assert.h>
-#include "utils.h"
+#include "common.h"
 #include "hash_table.h"
 
 /* Fati Iseni
 * DO NOT use this implementation as a general purpose hash table.
 * It is tailored for our scenario and it is safe to use only within this context.
 */
-
-static size_t hash(const HTableSizeList *table, const char *key, size_t keyLength) {
-    size_t hash = 0x811C9DC5; // 2166136261
-    for (size_t i = 0; i < keyLength; i++) {
-        hash = (hash * 31) + key[i];
-    }
-    return hash & (table->size - 1);
-}
-
-static bool str_equals_same_length2(const char *s1, const char *s2, size_t length) {
-    assert(s1);
-    assert(s2);
-
-    return strcasecmp(s1, s2) == 0;
-    for (size_t i = 0; i < length; i++) {
-        if (s1[i] != s2[i]) {
-            return false;
-        }
-    }
-    return true;
-}
 
 HTableSizeList *htable_sizelist_create(size_t size) {
     size_t tableSize = next_power_of_two(size);
@@ -59,10 +36,10 @@ HTableSizeList *htable_sizelist_create(size_t size) {
 }
 
 const ListItem *htable_sizelist_search(const HTableSizeList *table, const char *key, size_t keyLength) {
-    size_t index = hash(table, key, keyLength);
+    size_t index = hash(table->size, key, keyLength);
     EntrySizeList *entry = table->buckets[index];
     while (entry) {
-        if (str_equals_same_length2(entry->key, key, keyLength)) {
+        if (strcasecmp(entry->key, key) == 0) {
             return entry->list;
         }
         entry = entry->next;
@@ -82,12 +59,12 @@ static void linked_list_add(HTableSizeList *table, EntrySizeList *entry, size_t 
 }
 
 void htable_sizelist_add(HTableSizeList *table, const char *key, size_t keyLength, size_t value) {
-    size_t index = hash(table, key, keyLength);
+    size_t index = hash(table->size, key, keyLength);
     EntrySizeList *entry = table->buckets[index];
 
     while (entry) {
         // We know this table is always used with same key length.
-        if (str_equals_same_length2(entry->key, key, keyLength)) {
+        if (strcasecmp(entry->key, key) == 0) {
             linked_list_add(table, entry, value);
             return;
         }

@@ -18,7 +18,7 @@
     } while (0)
 
 
-#if defined(_WIN32) || defined(_WIN64)  // Windows
+#if defined(_WIN32) || defined(_WIN64)
 // Windows-specific includes and definitions
 #include <windows.h>
 typedef HANDLE thread_t;

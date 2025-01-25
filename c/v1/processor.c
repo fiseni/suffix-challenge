@@ -1,12 +1,11 @@
+#include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
 #include <assert.h>
-#include "utils.h"
+#include "common.h"
 #include "thread_utils.h"
 #include "hash_table.h"
 #include "source_data.h"
-
-const char *processor_get_identifier() { return "Processor5"; }
 
 typedef struct PartsInfo {
     Part *parts;
@@ -31,28 +30,20 @@ typedef struct ThreadArgs {
 
 static void build_masterPartsInfo(const SourceData *data, MasterPartsInfo *mpInfo);
 static void build_partsInfo(const SourceData *data, PartsInfo *partsInfo);
+static void free_info_allocations(MasterPartsInfo masterPartsInfo, PartsInfo partsInfo);
 static thread_ret_t create_suffix_table_for_mp_code(thread_arg_t arg);
 static thread_ret_t create_suffix_table_for_mp_codeNh(thread_arg_t arg);
 static thread_ret_t create_suffix_table_for_part_code(thread_arg_t arg);
-static void free_info_allocations(MasterPartsInfo masterPartsInfo, PartsInfo partsInfo);
 static int compare_mp_by_code_length_asc(const void *a, const void *b);
 static int compare_mp_by_codeNh_length_asc(const void *a, const void *b);
 static int compare_part_by_code_length_asc(const void *a, const void *b);
 static void backward_fill(size_t *array);
 
 static const size_t MAX_VALUE = ((size_t)-1);
-static char *block = NULL;
 static HTableString *dictionary = NULL;
 
-const char *processor_find_match(const char *partCode) {
-    char buffer[MAX_STRING_LENGTH];
-    size_t bufferLength;
-    str_to_upper_trim(partCode, buffer, sizeof(buffer), &bufferLength);
-    if (bufferLength < MIN_STRING_LENGTH) {
-        return NULL;
-    }
-
-    const char *match = htable_string_search(dictionary, buffer, bufferLength);
+const char *processor_find_match(const char *partCode, size_t partCodeLength) {
+    const char *match = htable_string_search(dictionary, partCode, partCodeLength);
     return match;
 }
 
@@ -110,7 +101,6 @@ static void free_info_allocations(MasterPartsInfo masterPartsInfo, PartsInfo par
             htable_string_free(masterPartsInfo.suffixesByNoHyphensLength[length]);
         }
     }
-    free(masterPartsInfo.masterParts);
     free(masterPartsInfo.masterPartsNoHyphens);
 
     for (size_t length = 0; length < MAX_STRING_LENGTH; length++) {
@@ -122,16 +112,13 @@ static void free_info_allocations(MasterPartsInfo masterPartsInfo, PartsInfo par
 }
 
 void processor_clean() {
-    free(block);
     htable_string_free(dictionary);
 }
 
 static void build_masterPartsInfo(const SourceData *data, MasterPartsInfo *mpInfo) {
     // Build masterParts
     size_t masterPartsCount = data->masterPartsCount;
-    MasterPart *masterParts = malloc(masterPartsCount * sizeof(*masterParts));
-    CHECK_ALLOC(masterParts);
-    memcpy(masterParts, data->masterParts, masterPartsCount * sizeof(*masterParts));
+    MasterPart *masterParts = (MasterPart *)data->masterParts;
     qsort(masterParts, masterPartsCount, sizeof(*masterParts), compare_mp_by_code_length_asc);
 
     // Build masterPartsNoHyphens
@@ -139,7 +126,7 @@ static void build_masterPartsInfo(const SourceData *data, MasterPartsInfo *mpInf
     CHECK_ALLOC(masterPartsNoHyphens);
     size_t masterPartsNoHyphensCount = 0;
     for (size_t i = 0; i < masterPartsCount; i++) {
-        if (str_contains_dash(masterParts[i].code, masterParts[i].codeLength)) {
+        if (masterParts[i].codeNhLength >= MIN_STRING_LENGTH) {
             masterPartsNoHyphens[masterPartsNoHyphensCount++] = masterParts[i];
         }
     }
@@ -253,32 +240,11 @@ static thread_ret_t create_suffix_table_for_mp_codeNh(thread_arg_t arg) {
 }
 
 static void build_partsInfo(const SourceData *data, PartsInfo *partsInfo) {
-    const Part *inputParts = data->parts;
-    size_t inputPartsCount = data->partsCount;
-
-    // Allocate block memory for strings
-    size_t blockIndex = 0;
-    size_t blockSize = sizeof(char) * MAX_STRING_LENGTH * inputPartsCount;
-    block = malloc(blockSize);
-    CHECK_ALLOC(block);
-
     // Build parts
-    Part *parts = malloc(sizeof(*parts) * inputPartsCount);
+    size_t partsCount = data->partsCount;
+    Part *parts = malloc(sizeof(*parts) * partsCount);
     CHECK_ALLOC(parts);
-    size_t partsCount = 0;
-    for (size_t i = 0; i < inputPartsCount; i++) {
-        const char *src = inputParts[i].code;
-        size_t stringLength;
-        str_to_upper_trim(src, &block[blockIndex], MAX_STRING_LENGTH, &stringLength);
-
-        if (stringLength >= MIN_STRING_LENGTH) {
-            parts[partsCount].codeLength = stringLength;
-            parts[partsCount].code = &block[blockIndex];
-            CHECK_ALLOC(parts[partsCount].code);
-            partsCount++;
-        }
-        blockIndex += stringLength + 1;
-    }
+    memcpy(parts, data->parts, partsCount * sizeof(*parts));
     qsort(parts, partsCount, sizeof(*parts), compare_part_by_code_length_asc);
 
     partsInfo->parts = parts;
@@ -311,7 +277,6 @@ static void build_partsInfo(const SourceData *data, PartsInfo *partsInfo) {
     }
     for (size_t length = MIN_STRING_LENGTH; length < MAX_STRING_LENGTH; length++) {
         if (threads[length]) {
-
             int status = join_thread(threads[length], NULL);
             CHECK_THREAD_JOIN_STATUS(status, length);
         }

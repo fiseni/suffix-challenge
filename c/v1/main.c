@@ -1,14 +1,11 @@
 #include <stdio.h>
 #include "cross_platform_time.h"
 #include "source_data.h"
-#include "utils.h"
+#include "common.h"
 #include "processor.h"
 
-static size_t run(const char *partsFile, const char *masterPartsFile, const char* resultsFile) {
+static size_t run(const char *partsFile, const char *masterPartsFile, const char *resultsFile) {
     const SourceData *data = source_data_read(masterPartsFile, partsFile);
-    if (data == NULL) {
-        return 0;
-    }
 
     FILE *file = fopen(resultsFile, "w");
     if (!file) {
@@ -18,17 +15,17 @@ static size_t run(const char *partsFile, const char *masterPartsFile, const char
 
     processor_initialize(data);
     size_t matchCount = 0;
+
     for (size_t i = 0; i < data->partsCount; i++) {
-        char *partCode = (char*)data->parts[i].code;
-        size_t length;
-        str_trim_in_place(partCode, &length);
-        const char *match = processor_find_match(partCode);
+        const Part part = data->parts[i];
+        const char *match = processor_find_match(part.code, part.codeLength);
+
         if (match) {
             matchCount++;
-            fprintf(file, "%s;%s\n", partCode, match);
+            fprintf(file, "%s;%s\n", part.code, match);
         }
         else {
-            fprintf(file, "%s;\n", partCode);
+            fprintf(file, "%s;\n", part.code);
         }
     };
 
@@ -40,6 +37,10 @@ static size_t run(const char *partsFile, const char *masterPartsFile, const char
 
 int main(int argc, char *argv[]) {
 
+#if _DEBUG
+    run("../../data/parts.txt", "../../data/master-parts.txt", "results.txt");
+    return 0;
+#endif
     if (argc < 4) {
         printf("\nInvalid arguments!\n\n");
         printf("Usage: %s <parts file> <master parts file> <results file>\n\n", argv[0]);

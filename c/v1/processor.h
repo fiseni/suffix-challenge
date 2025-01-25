@@ -3,8 +3,8 @@
 
 #include "source_data.h"
 
-const char *processor_get_identifier();
-const char *processor_find_match(const char *partNumber);
+const char *processor_find_match(const char *partNumber, size_t partCodeLength);
 void processor_initialize(const SourceData *data);
 void processor_clean();
+
 #endif

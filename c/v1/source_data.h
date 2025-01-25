@@ -27,6 +27,9 @@ typedef struct SourceData {
     size_t masterPartsCount;
     const Part *parts;
     size_t partsCount;
+
+    const void *blockMasterPartCodes;
+    const void *blockPartCodes;
 } SourceData;
 
 const SourceData *source_data_read(const char *masterPartsFilename, const char *partsFilename);
