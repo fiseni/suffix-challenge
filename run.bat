@@ -71,7 +71,7 @@ if not exist "%2" (
 )
 fc "%1" "%2" > nul 2>&1
 if errorlevel 1 (
-    echo Test failed!
+    echo Test failed. The produced result file is different than the expected file.
 ) else (
     echo Test passed!
 )

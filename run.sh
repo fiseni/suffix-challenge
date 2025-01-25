@@ -63,12 +63,15 @@ compare_results() {
   if [ ! -f "$2" ]; then
     echo "File $2 not found!"
   else
-    diff --strip-trailing-cr -y --suppress-common-lines "$1" "$2" >/dev/null 2>&1
+    diff --strip-trailing-cr -y --suppress-common-lines "$1" "$2" > temp_diff.txt
     if [ "$?" == 0 ]; then
       echo "Test passed!"
     else
-      echo "Test failed!"
+      echo "Test failed. The produced result file is different than the expected file. Here are the first 5 different lines."
+      echo ""
+      head -n 5 temp_diff.txt
     fi
+    rm temp_diff.txt >/dev/null 2>&1
   fi
   echo ""
 }
