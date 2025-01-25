@@ -1,6 +1,12 @@
 #ifndef COMMON_H
 #define COMMON_H
 
+#include <stdio.h>
+#include <stdlib.h>
+#include <stdbool.h>
+#include <assert.h>
+#include <string.h>
+
 // Macro to check allocation
 #define CHECK_ALLOC(ptr)                                   \
     do {                                                   \
@@ -9,15 +15,5 @@
             exit(EXIT_FAILURE);                            \
         }                                                  \
     } while (0)
-
-
-#if defined(_WIN32) || defined(_WIN64)
-// Windows includes and definitions
-#include <string.h>
-#define strcasecmp _stricmp
-#else
-// POSIX-specific includes and definitions
-#include <strings.h>
-#endif
 
 #endif

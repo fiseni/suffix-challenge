@@ -1,9 +1,4 @@
-#include <stdlib.h>
-#include <stdio.h>
-#include <string.h>
-#include <stdbool.h>
 #include <ctype.h>
-#include <assert.h>
 #include <sys/stat.h>
 #include "common.h"
 #include "source_data.h"
@@ -11,9 +6,10 @@
 static Part *build_parts(const char *partsPath, size_t *outCount);
 static MasterPart *build_masterParts(const char *masterPartsPath, size_t *outCount);
 static bool populate_masterPart(MasterPart *masterPart, size_t masterPartsIndex, char *code, size_t codeLength, char *block, size_t blockSize, size_t *blockIndexNoHyphens);
-bool str_contains_dash(const char *str, size_t strLength);
 const char *str_trim_in_place(char *src, size_t *outLength);
-void str_remove_char(const char *src, size_t srcLength, char *buffer, size_t bufferSize, char find, size_t *outBufferLength);
+const char *str_to_upper(const char *src, size_t srcLength, char *buffer);
+const char *str_remove_char(const char *src, size_t srcLength, char *buffer, char find, size_t *outBufferLength);
+bool str_contains_dash(const char *str, size_t strLength);
 long get_file_size_bytes(const char *filename);
 
 const SourceData *source_data_read(const char *masterPartsPath, const char *partsPath) {
@@ -28,8 +24,8 @@ const SourceData *source_data_read(const char *masterPartsPath, const char *part
     data->masterPartsCount = masterPartsCount;
     data->parts = parts;
     data->partsCount = partsCount;
-    data->blockMasterPartCodes = masterParts->code;
-    data->blockPartCodes = parts->code;
+    data->blockMasterPartCodes = masterParts->codeOriginal;
+    data->blockPartCodes = parts->codeOriginal;
 
     return data;
 }
@@ -52,7 +48,7 @@ static Part *build_parts(const char *partsPath, size_t *outCount) {
         exit(EXIT_FAILURE);
     }
 
-    size_t blockSize = sizeof(char) * fileSize + 1;
+    size_t blockSize = sizeof(char) * fileSize * 2 + 2;
     char *block = malloc(blockSize);
     CHECK_ALLOC(block);
     size_t contentSize = fread(block, 1, fileSize, file);
@@ -74,6 +70,7 @@ static Part *build_parts(const char *partsPath, size_t *outCount) {
 
     size_t stringStartIndex = 0;
     size_t partsIndex = 0;
+    size_t blockIndexUpper = contentSize;
     for (size_t i = 0; i < contentSize; i++) {
         if (block[i] == '\n') {
             block[i] = '\0';
@@ -83,11 +80,15 @@ static Part *build_parts(const char *partsPath, size_t *outCount) {
                 length--;
             }
             assert(partsIndex < lineCount);
-            parts[partsIndex].code = str_trim_in_place(&block[stringStartIndex], &length);
+
+            const char *codeOriginal = str_trim_in_place(&block[stringStartIndex], &length);
+            parts[partsIndex].codeOriginal = codeOriginal;
             parts[partsIndex].codeLength = length;
+            parts[partsIndex].code = str_to_upper(codeOriginal, length, &block[blockIndexUpper]);
             parts[partsIndex].index = partsIndex;
-            partsIndex++;
+            blockIndexUpper += length + 1; // +1 for null terminator
             stringStartIndex = i + 1;
+            partsIndex++;
         }
     }
 
@@ -103,7 +104,7 @@ static MasterPart *build_masterParts(const char *masterPartsPath, size_t *outCou
         exit(EXIT_FAILURE);
     }
 
-    size_t blockSize = sizeof(char) * fileSize * 2 + 2;
+    size_t blockSize = sizeof(char) * fileSize * 3 + 3;
     char *block = malloc(blockSize);
     CHECK_ALLOC(block);
     size_t contentSize = fread(block, 1, fileSize, file);
@@ -125,7 +126,7 @@ static MasterPart *build_masterParts(const char *masterPartsPath, size_t *outCou
 
     size_t stringStartIndex = 0;
     size_t masterPartsIndex = 0;
-    size_t blockIndexNoHyphens = contentSize;
+    size_t blockIndexExtra = contentSize;
     for (size_t i = 0; i < contentSize; i++) {
         if (block[i] == '\n') {
             block[i] = '\0';
@@ -135,7 +136,7 @@ static MasterPart *build_masterParts(const char *masterPartsPath, size_t *outCou
                 length--;
             }
             assert(masterPartsIndex < lineCount);
-            if (populate_masterPart(&masterParts[masterPartsIndex], masterPartsIndex, &block[stringStartIndex], length, block, blockSize, &blockIndexNoHyphens)) {
+            if (populate_masterPart(&masterParts[masterPartsIndex], masterPartsIndex, &block[stringStartIndex], length, block, blockSize, &blockIndexExtra)) {
                 masterPartsIndex++;
             }
             stringStartIndex = i + 1;
@@ -146,34 +147,28 @@ static MasterPart *build_masterParts(const char *masterPartsPath, size_t *outCou
     return masterParts;
 }
 
-static bool populate_masterPart(MasterPart *masterPart, size_t masterPartsIndex, char *code, size_t codeLength, char *block, size_t blockSize, size_t *blockIndexNoHyphens) {
+static bool populate_masterPart(MasterPart *masterPart, size_t masterPartsIndex, char *codeOriginal, size_t codeLength, char *block, size_t blockSize, size_t *blockIndexExtra) {
+    if (codeLength < MIN_STRING_LENGTH) {
+        return false;
+    }
+    str_trim_in_place(codeOriginal, &codeLength);
     if (codeLength < MIN_STRING_LENGTH) {
         return false;
     }
 
-    code = (char *)str_trim_in_place(code, &codeLength);
-    if (codeLength < MIN_STRING_LENGTH) {
-        return false;
-    }
-
-    masterPart->code = code;
+    masterPart->codeOriginal = codeOriginal;
     masterPart->codeLength = codeLength;
     masterPart->index = masterPartsIndex;
 
+    const char* code = str_to_upper(codeOriginal, codeLength, &block[*blockIndexExtra]);
+    masterPart->code = code;
+    *blockIndexExtra += codeLength + 1; // +1 for null terminator
+
     if (str_contains_dash(code, codeLength)) {
-        // Ensure there is enough space in the block for codeNh
-        if (*blockIndexNoHyphens + codeLength + 1 > blockSize) { // +1 for null terminator
-            fprintf(stderr, "Block overflow detected while allocating codeNh.\n");
-            exit(EXIT_FAILURE);
-        }
-
-        char *codeNh = &block[*blockIndexNoHyphens];
         size_t codeNhLength;
-        str_remove_char(code, codeLength, codeNh, codeLength, '-', &codeNhLength);
-        masterPart->codeNh = codeNh;
+        masterPart->codeNh = str_remove_char(code, codeLength, &block[*blockIndexExtra], '-', &codeNhLength);
         masterPart->codeNhLength = codeNhLength;
-
-        *blockIndexNoHyphens += codeNhLength + 1; // +1 for null terminator
+        *blockIndexExtra += codeNhLength + 1; // +1 for null terminator
     }
     else {
         masterPart->codeNh = NULL;
@@ -204,6 +199,35 @@ bool str_contains_dash(const char *str, size_t strLength) {
     return false;
 }
 
+const char *str_to_upper(const char *src, size_t srcLength, char *buffer) {
+    assert(src);
+    assert(buffer);
+
+    size_t j = 0;
+    for (size_t i = 0; i < srcLength; i++) {
+        buffer[j++] = toupper(src[i]);
+    }
+    buffer[j] = '\0';
+    return buffer;
+}
+
+const char *str_remove_char(const char *src, size_t srcLength, char *buffer, char find, size_t *outBufferLength) {
+    assert(src);
+    assert(buffer);
+    assert(outBufferLength);
+
+    size_t j = 0;
+    for (size_t i = 0; i < srcLength; i++) {
+        if (src[i] != find) {
+            // We know the chars are ASCII (no need to cast to unaligned char)
+            buffer[j++] = toupper(src[i]);
+        }
+    }
+    buffer[j] = '\0';
+    *outBufferLength = j;
+    return buffer;
+}
+
 const char *str_trim_in_place(char *src, size_t *outLength) {
     assert(src);
     assert(outLength);
@@ -232,24 +256,4 @@ const char *str_trim_in_place(char *src, size_t *outLength) {
     src[j] = '\0';
     *outLength = j;
     return src;
-}
-
-void str_remove_char(const char *src, size_t srcLength, char *buffer, size_t bufferSize, char find, size_t *outBufferLength) {
-    assert(src);
-    assert(buffer);
-    assert(outBufferLength);
-
-    if (bufferSize == 0) {
-        *outBufferLength = 0;
-        return;
-    }
-    size_t j = 0;
-    for (size_t i = 0; i < srcLength && j < bufferSize - 1; i++) {
-        if (src[i] != find) {
-            // We know the chars are ASCII (no need to cast to unaligned char)
-            buffer[j++] = toupper(src[i]);
-        }
-    }
-    buffer[j] = '\0';
-    *outBufferLength = j;
 }

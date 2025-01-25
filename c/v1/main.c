@@ -1,4 +1,3 @@
-#include <stdio.h>
 #include "cross_platform_time.h"
 #include "source_data.h"
 #include "common.h"
@@ -22,10 +21,10 @@ static size_t run(const char *partsFile, const char *masterPartsFile, const char
 
         if (match) {
             matchCount++;
-            fprintf(file, "%s;%s\n", part.code, match);
+            fprintf(file, "%s;%s\n", part.codeOriginal, match);
         }
         else {
-            fprintf(file, "%s;\n", part.code);
+            fprintf(file, "%s;\n", part.codeOriginal);
         }
     };
 
@@ -41,6 +40,7 @@ int main(int argc, char *argv[]) {
     run("../../data/parts.txt", "../../data/master-parts.txt", "results.txt");
     return 0;
 #endif
+
     if (argc < 4) {
         printf("\nInvalid arguments!\n\n");
         printf("Usage: %s <parts file> <master parts file> <results file>\n\n", argv[0]);

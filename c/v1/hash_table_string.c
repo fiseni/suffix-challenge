@@ -1,7 +1,3 @@
-#include <stdlib.h>
-#include <stdio.h>
-#include <stdbool.h>
-#include <assert.h>
 #include "common.h"
 #include "hash_table.h"
 
@@ -9,6 +5,18 @@
 * DO NOT use this implementation as a general purpose hash table.
 * It is tailored for our scenario and it is safe to use only within this context.
 */
+
+static bool str_equals_one_length(const char *s1, const char *s2, size_t s2Length) {
+    assert(s1);
+    assert(s2);
+
+    for (size_t i = 0; i < s2Length; i++) {
+        if (s1[i] == '\0' || s1[i] != s2[i]) {
+            return false;
+        }
+    }
+    return true;
+}
 
 HTableString *htable_string_create(size_t size) {
     size_t tableSize = next_power_of_two(size);
@@ -35,7 +43,7 @@ HTableString *htable_string_create(size_t size) {
 static const char *search_internal(const HTableString *table, const char *key, size_t keyLength, size_t index) {
     EntryString *entry = table->buckets[index];
     while (entry) {
-        if (strcasecmp(entry->key, key) == 0) {
+        if (str_equals_one_length(entry->key, key, keyLength)) {
             return entry->value;
         }
         entry = entry->next;

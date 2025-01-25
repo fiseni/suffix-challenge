@@ -1,7 +1,3 @@
-#include <stdlib.h>
-#include <stdio.h>
-#include <stdbool.h>
-#include <assert.h>
 #include "common.h"
 #include "hash_table.h"
 
@@ -9,6 +5,18 @@
 * DO NOT use this implementation as a general purpose hash table.
 * It is tailored for our scenario and it is safe to use only within this context.
 */
+
+static bool str_equals_same_length(const char *s1, const char *s2, size_t length) {
+    assert(s1);
+    assert(s2);
+
+    for (size_t i = 0; i < length; i++) {
+        if (s1[i] != s2[i]) {
+            return false;
+        }
+    }
+    return true;
+}
 
 HTableSizeList *htable_sizelist_create(size_t size) {
     size_t tableSize = next_power_of_two(size);
@@ -39,7 +47,7 @@ const ListItem *htable_sizelist_search(const HTableSizeList *table, const char *
     size_t index = hash(table->size, key, keyLength);
     EntrySizeList *entry = table->buckets[index];
     while (entry) {
-        if (strcasecmp(entry->key, key) == 0) {
+        if (str_equals_same_length(entry->key, key, keyLength)) {
             return entry->list;
         }
         entry = entry->next;
@@ -64,7 +72,7 @@ void htable_sizelist_add(HTableSizeList *table, const char *key, size_t keyLengt
 
     while (entry) {
         // We know this table is always used with same key length.
-        if (strcasecmp(entry->key, key) == 0) {
+        if (str_equals_same_length(entry->key, key, keyLength)) {
             linked_list_add(table, entry, value);
             return;
         }

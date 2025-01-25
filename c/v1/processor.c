@@ -1,7 +1,3 @@
-#include <stdlib.h>
-#include <stdio.h>
-#include <string.h>
-#include <assert.h>
 #include "common.h"
 #include "thread_utils.h"
 #include "hash_table.h"
@@ -83,7 +79,7 @@ void processor_initialize(const SourceData *data) {
             while (originalParts) {
                 size_t originalPartIndex = originalParts->value;
                 Part part = partsInfo.parts[originalPartIndex];
-                htable_string_insert_if_not_exists(dictionary, part.code, part.codeLength, mp.code);
+                htable_string_insert_if_not_exists(dictionary, part.code, part.codeLength, mp.codeOriginal);
                 originalParts = originalParts->next;
             }
         }
@@ -213,7 +209,7 @@ static thread_ret_t create_suffix_table_for_mp_code(thread_arg_t arg) {
     for (size_t i = startIndex; i < masterPartsCount; i++) {
         MasterPart mp = masterParts[i];
         const char *suffix = mp.code + (mp.codeLength - suffixLength);
-        htable_string_insert_if_not_exists(table, suffix, suffixLength, mp.code);
+        htable_string_insert_if_not_exists(table, suffix, suffixLength, mp.codeOriginal);
     }
     mpInfo->suffixesByLength[suffixLength] = table;
     return 0;
@@ -233,7 +229,7 @@ static thread_ret_t create_suffix_table_for_mp_codeNh(thread_arg_t arg) {
     for (size_t i = startIndex; i < masterPartsNoHyphensCount; i++) {
         MasterPart mp = masterPartsNoHyphens[i];
         const char *suffix = mp.codeNh + (mp.codeNhLength - suffixLength);
-        htable_string_insert_if_not_exists(table, suffix, suffixLength, mp.code);
+        htable_string_insert_if_not_exists(table, suffix, suffixLength, mp.codeOriginal);
     }
     mpInfo->suffixesByNoHyphensLength[suffixLength] = table;
     return 0;
