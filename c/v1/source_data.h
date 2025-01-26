@@ -11,32 +11,32 @@
 #define MIN_STRING_LENGTH ((size_t)3)
 
 typedef struct MasterPart {
-    const char *codeOriginal;
     const char *code;
-    const char *codeNh;
     size_t codeLength;
-    size_t codeNhLength;
-    size_t index; // used for stable sorting
+    size_t index;
 } MasterPart;
 
 typedef struct Part {
-    const char *codeOriginal;
     const char *code;
     size_t codeLength;
-    size_t index; // used for stable sorting
+    size_t index;
 } Part;
 
 typedef struct SourceData {
-    const MasterPart *masterParts;
-    size_t masterPartsCount;
-    const Part *parts;
-    size_t partsCount;
+    const MasterPart *masterPartsOriginal;
+    size_t masterPartsOriginalCount;
+    const MasterPart *masterPartsAsc;
+    size_t masterPartsAscCount;
+    const MasterPart *masterPartsAscNh;
+    size_t masterPartsAscNhCount;
 
-    const void *blockMasterPartCodes;
-    const void *blockPartCodes;
+    const Part *partsOriginal;
+    size_t partsOriginalCount;
+    const Part *partsAsc;
+    size_t partsAscCount;
 } SourceData;
 
-const SourceData *source_data_read(const char *masterPartsFilename, const char *partsFilename);
+const SourceData *source_data_read(const char *partsFile, const char *masterPartsFile);
 void source_data_clean(const SourceData *data);
 
 #endif

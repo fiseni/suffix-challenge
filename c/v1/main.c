@@ -4,7 +4,7 @@
 #include "processor.h"
 
 static size_t run(const char *partsFile, const char *masterPartsFile, const char *resultsFile) {
-    const SourceData *data = source_data_read(masterPartsFile, partsFile);
+    const SourceData *data = source_data_read(partsFile, masterPartsFile);
 
     FILE *file = fopen(resultsFile, "w");
     if (!file) {
@@ -15,16 +15,16 @@ static size_t run(const char *partsFile, const char *masterPartsFile, const char
     processor_initialize(data);
     size_t matchCount = 0;
 
-    for (size_t i = 0; i < data->partsCount; i++) {
-        const Part part = data->parts[i];
+    for (size_t i = 0; i < data->partsOriginalCount; i++) {
+        const Part part = data->partsOriginal[i];
         const char *match = processor_find_match(part.code, part.codeLength);
 
         if (match) {
             matchCount++;
-            fprintf(file, "%s;%s\n", part.codeOriginal, match);
+            fprintf(file, "%s;%s\n", part.code, match);
         }
         else {
-            fprintf(file, "%s;\n", part.codeOriginal);
+            fprintf(file, "%s;\n", part.code);
         }
     };
 

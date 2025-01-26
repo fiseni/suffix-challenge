@@ -3,198 +3,149 @@
 #include "hash_table.h"
 #include "source_data.h"
 
-typedef struct PartsInfo {
-    Part *parts;
-    size_t partsCount;
-    HTableSizeList *suffixesByLength[MAX_STRING_LENGTH];
-} PartsInfo;
-
-typedef struct MasterPartsInfo {
-    MasterPart *masterParts;
-    MasterPart *masterPartsNoHyphens;
-    size_t masterPartsCount;
-    size_t masterPartsNoHyphensCount;
-    HTableString *suffixesByLength[MAX_STRING_LENGTH];
-    HTableString *suffixesByNoHyphensLength[MAX_STRING_LENGTH];
-} MasterPartsInfo;
+typedef struct Context {
+    SourceData *data;
+    HTableSizeT *dictionary;
+    HTableSizeT *mpSuffixesByLength[MAX_STRING_LENGTH];
+    HTableSizeT *mpNhSuffixesByLength[MAX_STRING_LENGTH];
+    HTableSizeList *partSuffixesByLength[MAX_STRING_LENGTH];
+} Context;
 
 typedef struct ThreadArgs {
-    void *info;
+    Context *ctx;
     size_t startIndex;
     size_t suffixLength;
 } ThreadArgs;
 
-static void build_masterPartsInfo(const SourceData *data, MasterPartsInfo *mpInfo);
-static void build_partsInfo(const SourceData *data, PartsInfo *partsInfo);
-static void free_info_allocations(MasterPartsInfo masterPartsInfo, PartsInfo partsInfo);
-static void create_suffix_tables(void *info, size_t *startIndexByLength, thread_func_t func);
+static Context ctx = { 0 };
+
+static void build_suffix_tables(Context *ctx);
+static void create_suffix_tables(Context *ctx, size_t *startIndexByLength, thread_func_t func);
 static thread_ret_t create_suffix_table_for_mp_code(thread_arg_t arg);
 static thread_ret_t create_suffix_table_for_mp_codeNh(thread_arg_t arg);
 static thread_ret_t create_suffix_table_for_part_code(thread_arg_t arg);
-static int compare_mp_by_code_length_asc(const void *a, const void *b);
-static int compare_mp_by_codeNh_length_asc(const void *a, const void *b);
-static int compare_part_by_code_length_asc(const void *a, const void *b);
 static void backward_fill(size_t *array);
 
-static const size_t MAX_VALUE = ((size_t)-1);
-static HTableString *dictionary = NULL;
-
 const char *processor_find_match(const char *partCode, size_t partCodeLength) {
-    const char *match = htable_string_search(dictionary, partCode, partCodeLength);
-    return match;
+    if (partCodeLength < MIN_STRING_LENGTH) {
+        return NULL;
+    }
+    char buffer[MAX_STRING_LENGTH];
+    str_to_upper(partCode, partCodeLength, buffer);
+
+    size_t mpIndex = htable_sizet_search(ctx.dictionary, buffer, partCodeLength);
+    if (mpIndex == MAX_SIZE_T_VALUE) {
+        return NULL;
+    }
+    return ctx.data->masterPartsOriginal[mpIndex].code;
 }
 
 void processor_initialize(const SourceData *data) {
-    MasterPartsInfo masterPartsInfo = { 0 };
-    build_masterPartsInfo(data, &masterPartsInfo);
-    PartsInfo partsInfo = { 0 };
-    build_partsInfo(data, &partsInfo);
+    ctx.data = (SourceData*)data;
+    ctx.dictionary = htable_sizet_create(data->partsAscCount);
+    build_suffix_tables(&ctx);
 
-    dictionary = htable_string_create(partsInfo.partsCount);
+    for (size_t i = 0; i < data->partsAscCount; i++) {
+        Part part = data->partsAsc[i];
 
-    for (size_t i = 0; i < partsInfo.partsCount; i++) {
-        Part part = partsInfo.parts[i];
-
-        HTableString *masterPartsBySuffix = masterPartsInfo.suffixesByLength[part.codeLength];
+        HTableSizeT *masterPartsBySuffix = ctx.mpSuffixesByLength[part.codeLength];
         if (masterPartsBySuffix) {
-            const char *match = htable_string_search(masterPartsBySuffix, part.code, part.codeLength);
-            if (match) {
-                htable_string_insert_if_not_exists(dictionary, part.code, part.codeLength, match);
+            size_t mpIndex = htable_sizet_search(masterPartsBySuffix, part.code, part.codeLength);
+            if (mpIndex != MAX_SIZE_T_VALUE) {
+                htable_sizet_insert_if_not_exists(ctx.dictionary, part.code, part.codeLength, mpIndex);
                 continue;
             }
         }
-        masterPartsBySuffix = masterPartsInfo.suffixesByNoHyphensLength[part.codeLength];
+        masterPartsBySuffix = ctx.mpNhSuffixesByLength[part.codeLength];
         if (masterPartsBySuffix) {
-            const char *match = htable_string_search(masterPartsBySuffix, part.code, part.codeLength);
-            if (match) {
-                htable_string_insert_if_not_exists(dictionary, part.code, part.codeLength, match);
+            size_t mpIndex = htable_sizet_search(masterPartsBySuffix, part.code, part.codeLength);
+            if (mpIndex != MAX_SIZE_T_VALUE) {
+                htable_sizet_insert_if_not_exists(ctx.dictionary, part.code, part.codeLength, mpIndex);
             }
         }
     }
 
-    for (long i = (long)masterPartsInfo.masterPartsCount - 1; i >= 0; i--) {
-        MasterPart mp = masterPartsInfo.masterParts[i];
+    for (long i = (long)data->masterPartsAscCount - 1; i >= 0; i--) {
+        MasterPart mp = data->masterPartsAsc[i];
 
-        HTableSizeList *partsBySuffix = partsInfo.suffixesByLength[mp.codeLength];
+        HTableSizeList *partsBySuffix = ctx.partSuffixesByLength[mp.codeLength];
         if (partsBySuffix) {
             const ListItem *originalParts = htable_sizelist_search(partsBySuffix, mp.code, mp.codeLength);
             while (originalParts) {
                 size_t originalPartIndex = originalParts->value;
-                Part part = partsInfo.parts[originalPartIndex];
-                htable_string_insert_if_not_exists(dictionary, part.code, part.codeLength, mp.codeOriginal);
+                Part part = data->partsAsc[originalPartIndex];
+                htable_sizet_insert_if_not_exists(ctx.dictionary, part.code, part.codeLength, mp.index);
                 originalParts = originalParts->next;
             }
         }
     }
-
-    free_info_allocations(masterPartsInfo, partsInfo);
 }
 
-static void free_info_allocations(MasterPartsInfo masterPartsInfo, PartsInfo partsInfo) {
-    for (size_t length = 0; length < MAX_STRING_LENGTH; length++) {
-        if (masterPartsInfo.suffixesByLength[length]) {
-            htable_string_free(masterPartsInfo.suffixesByLength[length]);
-        }
-        if (masterPartsInfo.suffixesByNoHyphensLength[length]) {
-            htable_string_free(masterPartsInfo.suffixesByNoHyphensLength[length]);
-        }
-    }
-    free(masterPartsInfo.masterPartsNoHyphens);
-
-    for (size_t length = 0; length < MAX_STRING_LENGTH; length++) {
-        if (partsInfo.suffixesByLength[length]) {
-            htable_sizelist_free(partsInfo.suffixesByLength[length]);
-        }
-    }
-    free(partsInfo.parts);
-}
 
 void processor_clean() {
-    htable_string_free(dictionary);
-}
-
-static void build_masterPartsInfo(const SourceData *data, MasterPartsInfo *mpInfo) {
-    // Build masterParts
-    size_t masterPartsCount = data->masterPartsCount;
-    MasterPart *masterParts = (MasterPart *)data->masterParts;
-    qsort(masterParts, masterPartsCount, sizeof(*masterParts), compare_mp_by_code_length_asc);
-
-    // Build masterPartsNoHyphens
-    MasterPart *masterPartsNoHyphens = malloc(masterPartsCount * sizeof(*masterPartsNoHyphens));
-    CHECK_ALLOC(masterPartsNoHyphens);
-    size_t masterPartsNoHyphensCount = 0;
-    for (size_t i = 0; i < masterPartsCount; i++) {
-        if (masterParts[i].codeNhLength >= MIN_STRING_LENGTH) {
-            masterPartsNoHyphens[masterPartsNoHyphensCount++] = masterParts[i];
-        }
-    }
-    qsort(masterPartsNoHyphens, masterPartsNoHyphensCount, sizeof(*masterPartsNoHyphens), compare_mp_by_codeNh_length_asc);
-
-    // Populate MasterPartsInfo
-    mpInfo->masterParts = masterParts;
-    mpInfo->masterPartsCount = masterPartsCount;
-    mpInfo->masterPartsNoHyphens = masterPartsNoHyphens;
-    mpInfo->masterPartsNoHyphensCount = masterPartsNoHyphensCount;
-
-    // Create and populate start indices.
-    size_t startIndexByLength[MAX_STRING_LENGTH] = { 0 };
-    size_t startIndexByLengthNoHyphens[MAX_STRING_LENGTH] = { 0 };
     for (size_t length = 0; length < MAX_STRING_LENGTH; length++) {
-        startIndexByLength[length] = MAX_VALUE;
-        startIndexByLengthNoHyphens[length] = MAX_VALUE;
-    }
-    for (size_t i = 0; i < masterPartsCount; i++) {
-        size_t length = masterParts[i].codeLength;
-        if (startIndexByLength[length] == MAX_VALUE) {
-            startIndexByLength[length] = i;
+        if (ctx.mpSuffixesByLength[length]) {
+            htable_sizet_free(ctx.mpSuffixesByLength[length]);
+        }
+        if (ctx.mpNhSuffixesByLength[length]) {
+            htable_sizet_free(ctx.mpNhSuffixesByLength[length]);
         }
     }
-    for (size_t i = 0; i < masterPartsNoHyphensCount; i++) {
-        size_t length = masterPartsNoHyphens[i].codeNhLength;
-        if (startIndexByLengthNoHyphens[length] == MAX_VALUE) {
-            startIndexByLengthNoHyphens[length] = i;
-        }
-    }
-    backward_fill(startIndexByLength);
-    backward_fill(startIndexByLengthNoHyphens);
-
-    create_suffix_tables(mpInfo, startIndexByLength, create_suffix_table_for_mp_code);
-    create_suffix_tables(mpInfo, startIndexByLengthNoHyphens, create_suffix_table_for_mp_codeNh);
-}
-
-static void build_partsInfo(const SourceData *data, PartsInfo *partsInfo) {
-    // Build parts
-    size_t partsCount = data->partsCount;
-    Part *parts = malloc(sizeof(*parts) * partsCount);
-    CHECK_ALLOC(parts);
-    memcpy(parts, data->parts, partsCount * sizeof(*parts));
-    qsort(parts, partsCount, sizeof(*parts), compare_part_by_code_length_asc);
-
-    partsInfo->parts = parts;
-    partsInfo->partsCount = partsCount;
-
-    // Create and populate start indices.
-    size_t startIndexByLength[MAX_STRING_LENGTH] = { 0 };
     for (size_t length = 0; length < MAX_STRING_LENGTH; length++) {
-        startIndexByLength[length] = MAX_VALUE;
-    }
-    for (size_t i = 0; i < partsCount; i++) {
-        size_t length = parts[i].codeLength;
-        if (startIndexByLength[length] == MAX_VALUE) {
-            startIndexByLength[length] = i;
+        if (ctx.partSuffixesByLength[length]) {
+            htable_sizelist_free(ctx.partSuffixesByLength[length]);
         }
     }
-    backward_fill(startIndexByLength);
-
-    create_suffix_tables(partsInfo, startIndexByLength, create_suffix_table_for_part_code);
+    htable_sizet_free(ctx.dictionary);
 }
 
-static void create_suffix_tables(void *info, size_t *startIndexByLength, thread_func_t func) {
+static void build_suffix_tables(Context *ctx)     {
+    size_t mpStartIndexByLength[MAX_STRING_LENGTH] = { 0 };
+    size_t mpNhStartIndexByLength[MAX_STRING_LENGTH] = { 0 };
+    size_t partStartIndexByLength[MAX_STRING_LENGTH] = { 0 };
+    for (size_t length = 0; length < MAX_STRING_LENGTH; length++) {
+        mpStartIndexByLength[length] = MAX_SIZE_T_VALUE;
+        mpNhStartIndexByLength[length] = MAX_SIZE_T_VALUE;
+        partStartIndexByLength[length] = MAX_SIZE_T_VALUE;
+    }
+
+    // Create suffix tables for masterPartsAsc
+    for (size_t i = 0; i < ctx->data->masterPartsAscCount; i++) {
+        size_t length = ctx->data->masterPartsAsc[i].codeLength;
+        if (mpStartIndexByLength[length] == MAX_SIZE_T_VALUE) {
+            mpStartIndexByLength[length] = i;
+        }
+    }
+    backward_fill(mpStartIndexByLength);
+    create_suffix_tables(ctx, mpStartIndexByLength, create_suffix_table_for_mp_code);
+
+    // Create suffix tables for masterPartsAscNh
+    for (size_t i = 0; i < ctx->data->masterPartsAscNhCount; i++) {
+        size_t length = ctx->data->masterPartsAscNh[i].codeLength;
+        if (mpNhStartIndexByLength[length] == MAX_SIZE_T_VALUE) {
+            mpNhStartIndexByLength[length] = i;
+        }
+    }
+    backward_fill(mpNhStartIndexByLength);
+    create_suffix_tables(ctx, mpNhStartIndexByLength, create_suffix_table_for_mp_codeNh);
+
+    // Create suffix tables partsAsc
+    for (size_t i = 0; i < ctx->data->partsAscCount; i++) {
+        size_t length = ctx->data->partsAsc[i].codeLength;
+        if (partStartIndexByLength[length] == MAX_SIZE_T_VALUE) {
+            partStartIndexByLength[length] = i;
+        }
+    }
+    backward_fill(partStartIndexByLength);
+    create_suffix_tables(ctx, partStartIndexByLength, create_suffix_table_for_part_code);
+}
+
+static void create_suffix_tables(Context *ctx, size_t *startIndexByLength, thread_func_t func) {
     thread_t threads[MAX_STRING_LENGTH] = { 0 };
     ThreadArgs threadArgs[MAX_STRING_LENGTH] = { 0 };
     for (size_t length = MIN_STRING_LENGTH; length < MAX_STRING_LENGTH; length++) {
-        if (startIndexByLength[length] != MAX_VALUE) {
-            threadArgs[length].info = info;
+        if (startIndexByLength[length] != MAX_SIZE_T_VALUE) {
+            threadArgs[length].ctx = ctx;
             threadArgs[length].suffixLength = length;
             threadArgs[length].startIndex = startIndexByLength[length];
             int status = create_thread(&threads[length], func, &threadArgs[length]);
@@ -211,65 +162,59 @@ static void create_suffix_tables(void *info, size_t *startIndexByLength, thread_
 
 static thread_ret_t create_suffix_table_for_mp_code(thread_arg_t arg) {
     ThreadArgs *args = (ThreadArgs *)arg;
-    MasterPartsInfo *mpInfo = args->info;
     size_t startIndex = args->startIndex;
     size_t suffixLength = args->suffixLength;
+    const MasterPart *masterPartsAsc = args->ctx->data->masterPartsAsc;
+    size_t masterPartsAscCount = args->ctx->data->masterPartsAscCount;
 
-    MasterPart *masterParts = mpInfo->masterParts;
-    size_t masterPartsCount = mpInfo->masterPartsCount;
-
-    HTableString *table = htable_string_create(masterPartsCount - startIndex);
-    for (size_t i = startIndex; i < masterPartsCount; i++) {
-        MasterPart mp = masterParts[i];
+    HTableSizeT *table = htable_sizet_create(masterPartsAscCount - startIndex);
+    for (size_t i = startIndex; i < masterPartsAscCount; i++) {
+        MasterPart mp = masterPartsAsc[i];
         const char *suffix = mp.code + (mp.codeLength - suffixLength);
-        htable_string_insert_if_not_exists(table, suffix, suffixLength, mp.codeOriginal);
+        htable_sizet_insert_if_not_exists(table, suffix, suffixLength, mp.index);
     }
-    mpInfo->suffixesByLength[suffixLength] = table;
+    args->ctx->mpSuffixesByLength[suffixLength] = table;
     return 0;
 }
 
 static thread_ret_t create_suffix_table_for_mp_codeNh(thread_arg_t arg) {
     ThreadArgs *args = (ThreadArgs *)arg;
-    MasterPartsInfo *mpInfo = args->info;
     size_t startIndex = args->startIndex;
     size_t suffixLength = args->suffixLength;
+    const MasterPart *masterPartsAscNh = args->ctx->data->masterPartsAscNh;
+    size_t masterPartsAscNhCount = args->ctx->data->masterPartsAscNhCount;
 
-    MasterPart *masterPartsNoHyphens = mpInfo->masterPartsNoHyphens;
-    size_t masterPartsNoHyphensCount = mpInfo->masterPartsNoHyphensCount;
-
-    HTableString *table = htable_string_create(masterPartsNoHyphensCount - startIndex);
-    for (size_t i = startIndex; i < masterPartsNoHyphensCount; i++) {
-        MasterPart mp = masterPartsNoHyphens[i];
-        const char *suffix = mp.codeNh + (mp.codeNhLength - suffixLength);
-        htable_string_insert_if_not_exists(table, suffix, suffixLength, mp.codeOriginal);
+    HTableSizeT *table = htable_sizet_create(masterPartsAscNhCount - startIndex);
+    for (size_t i = startIndex; i < masterPartsAscNhCount; i++) {
+        MasterPart mp = masterPartsAscNh[i];
+        const char *suffix = mp.code + (mp.codeLength - suffixLength);
+        htable_sizet_insert_if_not_exists(table, suffix, suffixLength, mp.index);
     }
-    mpInfo->suffixesByNoHyphensLength[suffixLength] = table;
+    args->ctx->mpNhSuffixesByLength[suffixLength] = table;
     return 0;
 }
 
 static thread_ret_t create_suffix_table_for_part_code(thread_arg_t arg) {
     ThreadArgs *args = (ThreadArgs *)arg;
-    PartsInfo *partsInfo = args->info;
     size_t startIndex = args->startIndex;
     size_t suffixLength = args->suffixLength;
+    const Part *partsAsc = args->ctx->data->partsAsc;
+    size_t partsAscCount = args->ctx->data->partsAscCount;
 
-    Part *parts = partsInfo->parts;
-    size_t partsCount = partsInfo->partsCount;
-
-    HTableSizeList *table = htable_sizelist_create(partsCount - startIndex);
-    for (size_t i = startIndex; i < partsCount; i++) {
-        Part part = parts[i];
+    HTableSizeList *table = htable_sizelist_create(partsAscCount - startIndex);
+    for (size_t i = startIndex; i < partsAscCount; i++) {
+        Part part = partsAsc[i];
         const char *suffix = part.code + (part.codeLength - suffixLength);
         htable_sizelist_add(table, suffix, suffixLength, i);
     }
-    partsInfo->suffixesByLength[suffixLength] = table;
+    args->ctx->partSuffixesByLength[suffixLength] = table;
     return 0;
 }
 
 static void backward_fill(size_t *array) {
     size_t tmp = array[MAX_STRING_LENGTH - 1];
     for (long length = (long)MAX_STRING_LENGTH - 1; length >= 0; length--) {
-        if (array[length] == MAX_VALUE) {
+        if (array[length] == MAX_SIZE_T_VALUE) {
             array[length] = tmp;
         }
         else {
@@ -277,51 +222,3 @@ static void backward_fill(size_t *array) {
         }
     }
 }
-
-static int compare_mp_by_code_length_asc(const void *a, const void *b) {
-    const MasterPart *mpA = (const MasterPart *)a;
-    const MasterPart *mpB = (const MasterPart *)b;
-    return (mpA->codeLength < mpB->codeLength) ? -1
-        : (mpA->codeLength > mpB->codeLength) ? 1
-        : (mpA->index < mpB->index) ? -1 : (mpA->index > mpB->index) ? 1 : 0;
-}
-
-static int compare_mp_by_codeNh_length_asc(const void *a, const void *b) {
-    const MasterPart *mpA = (const MasterPart *)a;
-    const MasterPart *mpB = (const MasterPart *)b;
-    return (mpA->codeNhLength < mpB->codeNhLength) ? -1
-        : (mpA->codeNhLength > mpB->codeNhLength) ? 1
-        : (mpA->index < mpB->index) ? -1 : (mpA->index > mpB->index) ? 1 : 0;
-}
-
-static int compare_part_by_code_length_asc(const void *a, const void *b) {
-    const Part *pA = (const Part *)a;
-    const Part *pB = (const Part *)b;
-    return (pA->codeLength < pB->codeLength) ? -1
-        : (pA->codeLength > pB->codeLength) ? 1
-        : (pA->index < pB->index) ? -1 : (pA->index > pB->index) ? 1 : 0;
-}
-
-/*
-* By applying simple qsort, the whole app is 50% faster, 310ms instead of 490ms.
-* But, it's not a stable sort. It still finds the same number of matches though.
-* However, in case of ties, it might return any of them.
-* Requirements specify for ties to return the first masterParts in the file.
-*/
-//static int compare_mp_by_code_length_asc(const void *a, const void *b) {
-//    size_t lenA = ((const MasterPart *)a)->codeLength;
-//    size_t lenB = ((const MasterPart *)b)->codeLength;
-//    return lenA < lenB ? -1 : lenA > lenB ? 1 : 0;
-//}
-//
-//static int compare_mp_by_codeNh_length_asc(const void *a, const void *b) {
-//    size_t lenA = ((const MasterPart *)a)->codeNhLength;
-//    size_t lenB = ((const MasterPart *)b)->codeNhLength;
-//    return lenA < lenB ? -1 : lenA > lenB ? 1 : 0;
-//}
-//
-//static int compare_part_by_code_length_asc(const void *a, const void *b) {
-//    size_t lenA = ((const Part *)a)->codeLength;
-//    size_t lenB = ((const Part *)b)->codeLength;
-//    return lenA < lenB ? -1 : lenA > lenB ? 1 : 0;
-//}

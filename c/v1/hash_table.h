@@ -2,25 +2,25 @@
 #define HASH_TABLE_H
 
 // #########################################################
-// Hash table storing a string.
-typedef struct EntryString {
+// Hash table storing a size_t.
+typedef struct EntrySizeT {
     const char *key;
-    const char *value;
-    struct EntryString *next;
-} EntryString;
+    size_t value;
+    struct EntrySizeT *next;
+} EntrySizeT;
 
-typedef struct HTableString {
-    EntryString **buckets;
+typedef struct HTableSizeT {
+    EntrySizeT **buckets;
     size_t size;
-    EntryString *block;
+    EntrySizeT *block;
     size_t blockCount;
     size_t blockIndex;
-} HTableString;
+} HTableSizeT;
 
-HTableString *htable_string_create(size_t size);
-const char *htable_string_search(const HTableString *table, const char *key, size_t keyLength);
-void htable_string_insert_if_not_exists(HTableString *table, const char *key, size_t keyLength, const char *value);
-void htable_string_free(HTableString *table);
+HTableSizeT *htable_sizet_create(size_t size);
+size_t htable_sizet_search(const HTableSizeT *table, const char *key, size_t keyLength);
+void htable_sizet_insert_if_not_exists(HTableSizeT *table, const char *key, size_t keyLength, size_t value);
+void htable_sizet_free(HTableSizeT *table);
 
 // #########################################################
 // Hash table storing a linked list of size_t.
