@@ -150,10 +150,10 @@ static int compare_by_code_length_asc(const void *a, const void *b) {
 }
 
 /*
-* By applying simple qsort, the whole app is 50% faster.
+* By applying simple qsort, the whole app is 30% faster (270ms wall time down from 400ms).
 * But, it's not a stable sort. It still finds the same number of matches though.
 * However, in case of ties, it might return any of them.
-* Requirements specify for ties to return the first masterParts in the file.
+* Requirements specify that for ties we should return the first masterParts in the file.
 */
 //static int compare_by_code_length_asc(const void *a, const void *b) {
 //    size_t lenA = ((const Part *)a)->codeLength;
