@@ -201,11 +201,10 @@ static thread_ret_t create_suffix_table_for_mp_code(thread_arg_t arg) {
     size_t startIndex = args->startIndex;
     size_t suffixLength = args->suffixLength;
 
-    HTableString *table = NULL;
     MasterPart *masterParts = mpInfo->masterParts;
     size_t masterPartsCount = mpInfo->masterPartsCount;
 
-    table = htable_string_create(masterPartsCount - startIndex);
+    HTableString *table = htable_string_create(masterPartsCount - startIndex);
     for (size_t i = startIndex; i < masterPartsCount; i++) {
         MasterPart mp = masterParts[i];
         const char *suffix = mp.code + (mp.codeLength - suffixLength);
@@ -221,11 +220,10 @@ static thread_ret_t create_suffix_table_for_mp_codeNh(thread_arg_t arg) {
     size_t startIndex = args->startIndex;
     size_t suffixLength = args->suffixLength;
 
-    HTableString *table = NULL;
     MasterPart *masterPartsNoHyphens = mpInfo->masterPartsNoHyphens;
     size_t masterPartsNoHyphensCount = mpInfo->masterPartsNoHyphensCount;
 
-    table = htable_string_create(masterPartsNoHyphensCount - startIndex);
+    HTableString *table = htable_string_create(masterPartsNoHyphensCount - startIndex);
     for (size_t i = startIndex; i < masterPartsNoHyphensCount; i++) {
         MasterPart mp = masterPartsNoHyphens[i];
         const char *suffix = mp.codeNh + (mp.codeNhLength - suffixLength);
@@ -285,11 +283,10 @@ static thread_ret_t create_suffix_table_for_part_code(thread_arg_t arg) {
     size_t startIndex = args->startIndex;
     size_t suffixLength = args->suffixLength;
 
-    HTableSizeList *table = NULL;
     Part *parts = partsInfo->parts;
     size_t partsCount = partsInfo->partsCount;
 
-    table = htable_sizelist_create(partsCount - startIndex);
+    HTableSizeList *table = htable_sizelist_create(partsCount - startIndex);
     for (size_t i = startIndex; i < partsCount; i++) {
         Part part = parts[i];
         const char *suffix = part.code + (part.codeLength - suffixLength);
