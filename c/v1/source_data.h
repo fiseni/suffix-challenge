@@ -16,14 +16,14 @@ typedef struct MasterPart {
     const char *codeNh;
     size_t codeLength;
     size_t codeNhLength;
-    size_t index;
+    size_t index; // used for stable sorting
 } MasterPart;
 
 typedef struct Part {
     const char *codeOriginal;
     const char *code;
     size_t codeLength;
-    size_t index;
+    size_t index; // used for stable sorting
 } Part;
 
 typedef struct SourceData {

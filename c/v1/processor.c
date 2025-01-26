@@ -331,3 +331,27 @@ static int compare_part_by_code_length_asc(const void *a, const void *b) {
         : (pA->codeLength > pB->codeLength) ? 1
         : (pA->index < pB->index) ? -1 : (pA->index > pB->index) ? 1 : 0;
 }
+
+/*
+* By applying simple qsort, the whole app is 50% faster, 310ms instead of 490ms.
+* But, it's not a stable sort. It still finds the same number of matches though.
+* However, in case of ties, it might return any of them.
+* Requirements specify for ties to return the first masterParts in the file.
+*/
+//static int compare_mp_by_code_length_asc(const void *a, const void *b) {
+//    size_t lenA = ((const MasterPart *)a)->codeLength;
+//    size_t lenB = ((const MasterPart *)b)->codeLength;
+//    return lenA < lenB ? -1 : lenA > lenB ? 1 : 0;
+//}
+//
+//static int compare_mp_by_codeNh_length_asc(const void *a, const void *b) {
+//    size_t lenA = ((const MasterPart *)a)->codeNhLength;
+//    size_t lenB = ((const MasterPart *)b)->codeNhLength;
+//    return lenA < lenB ? -1 : lenA > lenB ? 1 : 0;
+//}
+//
+//static int compare_part_by_code_length_asc(const void *a, const void *b) {
+//    size_t lenA = ((const Part *)a)->codeLength;
+//    size_t lenB = ((const Part *)b)->codeLength;
+//    return lenA < lenB ? -1 : lenA > lenB ? 1 : 0;
+//}
