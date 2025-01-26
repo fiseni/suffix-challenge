@@ -12,9 +12,10 @@ typedef struct EntrySizeT {
 typedef struct HTableSizeT {
     EntrySizeT **buckets;
     size_t size;
-    EntrySizeT *block;
-    size_t blockCount;
-    size_t blockIndex;
+
+    EntrySizeT *blockEntries;
+    size_t blockEntriesCount;
+    size_t blockEntriesIndex;
 } HTableSizeT;
 
 HTableSizeT *htable_sizet_create(size_t size);
@@ -38,12 +39,13 @@ typedef struct EntrySizeTList {
 typedef struct HTableSizeTList {
     EntrySizeTList **buckets;
     size_t size;
-    EntrySizeTList *blockEntry;
-    size_t blockEntryCount;
-    size_t blockEntryIndex;
-    ListItem *block;
-    size_t blockCount;
-    size_t blockIndex;
+
+    EntrySizeTList *blockEntries;
+    size_t blockEntriesCount;
+    size_t blockEntriesIndex;
+    ListItem *blockItems;
+    size_t blockItemsCount;
+    size_t blockItemsIndex;
 } HTableSizeTList;
 
 HTableSizeTList *htable_sizetlist_create(size_t size);

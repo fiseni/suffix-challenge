@@ -91,18 +91,6 @@ void processor_clean() {
     htable_sizet_free(ctx.dictionary);
 }
 
-static void backward_fill(size_t *array) {
-    size_t tmp = array[MAX_STRING_LENGTH - 1];
-    for (long length = (long)MAX_STRING_LENGTH - 1; length >= 0; length--) {
-        if (array[length] == MAX_SIZE_T_VALUE) {
-            array[length] = tmp;
-        }
-        else {
-            tmp = array[length];
-        }
-    }
-}
-
 static thread_ret_t create_suffix_table_for_masterParts(thread_arg_t arg) {
     ThreadArgs *args = (ThreadArgs *)arg;
     size_t startIndex = args->startIndex;
@@ -152,6 +140,18 @@ static thread_ret_t create_suffix_table_for_parts(thread_arg_t arg) {
     }
     args->ctx->partSuffixesByLength[suffixLength] = table;
     return 0;
+}
+
+static inline void backward_fill(size_t *array) {
+    size_t tmp = array[MAX_STRING_LENGTH - 1];
+    for (long length = (long)MAX_STRING_LENGTH - 1; length >= 0; length--) {
+        if (array[length] == MAX_SIZE_T_VALUE) {
+            array[length] = tmp;
+        }
+        else {
+            tmp = array[length];
+        }
+    }
 }
 
 static void create_suffix_tables(Context *ctx, const Part *parts, size_t count, thread_func_t func) {

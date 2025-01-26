@@ -32,14 +32,17 @@ HTableSizeTList *htable_sizetlist_create(size_t size) {
     for (size_t i = 0; i < tableSize; i++) {
         table->buckets[i] = NULL;
     }
-    table->blockEntryIndex = 0;
-    table->blockEntryCount = size;
-    table->blockEntry = malloc(sizeof(*table->blockEntry) * table->blockEntryCount);
-    CHECK_ALLOC(table->blockEntry);
-    table->blockIndex = 0;
-    table->blockCount = size;
-    table->block = malloc(sizeof(*table->block) * table->blockCount);
-    CHECK_ALLOC(table->block);
+
+    table->blockEntriesIndex = 0;
+    table->blockEntriesCount = size;
+    table->blockEntries = malloc(sizeof(*table->blockEntries) * table->blockEntriesCount);
+    CHECK_ALLOC(table->blockEntries);
+
+    table->blockItemsIndex = 0;
+    table->blockItemsCount = size;
+    table->blockItems = malloc(sizeof(*table->blockItems) * table->blockItemsCount);
+    CHECK_ALLOC(table->blockItems);
+
     return table;
 }
 
@@ -58,9 +61,9 @@ const ListItem *htable_sizetlist_search(const HTableSizeTList *table, const char
 static void linked_list_add(HTableSizeTList *table, EntrySizeTList *entry, size_t value) {
     // In our scenario, we'll never add more items than the initially size passed during table creation.
     // So, we're sure that we won't run out of space. No need to malloc again.
-    assert(table->blockIndex < table->blockCount);
+    assert(table->blockItemsIndex < table->blockItemsCount);
 
-    ListItem *newItem = &table->block[table->blockIndex++];
+    ListItem *newItem = &table->blockItems[table->blockItemsIndex++];
     newItem->value = value;
     newItem->next = entry->list;
     entry->list = newItem;
@@ -81,9 +84,9 @@ void htable_sizetlist_add(HTableSizeTList *table, const char *key, size_t keyLen
 
     // In our scenario, we'll never add more items than the initially size passed during table creation.
     // So, we're sure that we won't run out of space. No need to malloc again.
-    assert(table->blockEntryIndex < table->blockEntryCount);
+    assert(table->blockEntriesIndex < table->blockEntriesCount);
 
-    EntrySizeTList *newEntry = &table->blockEntry[table->blockEntryIndex++];
+    EntrySizeTList *newEntry = &table->blockEntries[table->blockEntriesIndex++];
     newEntry->key = key;
     newEntry->list = NULL;
     linked_list_add(table, newEntry, value);
@@ -93,8 +96,8 @@ void htable_sizetlist_add(HTableSizeTList *table, const char *key, size_t keyLen
 
 void htable_sizetlist_free(HTableSizeTList *table) {
     if (table) {
-        free(table->blockEntry);
-        free(table->block);
+        free(table->blockEntries);
+        free(table->blockItems);
         free(table->buckets);
         free(table);
     }

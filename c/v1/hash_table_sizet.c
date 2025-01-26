@@ -32,10 +32,12 @@ HTableSizeT *htable_sizet_create(size_t size) {
     for (size_t i = 0; i < tableSize; i++) {
         table->buckets[i] = NULL;
     }
-    table->blockIndex = 0;
-    table->blockCount = size;
-    table->block = malloc(sizeof(*table->block) * table->blockCount);
-    CHECK_ALLOC(table->block);
+
+    table->blockEntriesIndex = 0;
+    table->blockEntriesCount = size;
+    table->blockEntries = malloc(sizeof(*table->blockEntries) * table->blockEntriesCount);
+    CHECK_ALLOC(table->blockEntries);
+
     return table;
 }
 
@@ -65,9 +67,9 @@ void htable_sizet_insert_if_not_exists(HTableSizeT *table, const char *key, size
 
     // In our scenario, we'll never add more items than the initially size passed during table creation.
     // So, we're sure that we won't run out of space. No need to malloc again.
-    assert(table->blockIndex < table->blockCount);
+    assert(table->blockEntriesIndex < table->blockEntriesCount);
 
-    EntrySizeT *new_entry = &table->block[table->blockIndex++];
+    EntrySizeT *new_entry = &table->blockEntries[table->blockEntriesIndex++];
     new_entry->key = key;
     new_entry->value = value;
     new_entry->next = table->buckets[index];
@@ -76,7 +78,7 @@ void htable_sizet_insert_if_not_exists(HTableSizeT *table, const char *key, size
 
 void htable_sizet_free(HTableSizeT *table) {
     if (table) {
-        free(table->block);
+        free(table->blockEntries);
         free(table->buckets);
         free(table);
     }

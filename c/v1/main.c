@@ -29,8 +29,8 @@ static size_t run(const char *partsFile, const char *masterPartsFile, const char
     };
 
     fclose(file);
-    processor_clean();
-    source_data_clean(data);
+    //processor_clean();
+    //source_data_clean(data);
     return matchCount;
 }
 
@@ -47,10 +47,10 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
-    double start = time_get_seconds();
+    //double start = time_get_seconds();
     size_t output = run(argv[1], argv[2], argv[3]);
-    printf("Completed in: \t\t%f seconds.\n", time_get_seconds() - start);
-    printf("Output: %zu\n", output);
+    //printf("Completed in: \t\t%f seconds.\n", time_get_seconds() - start);
+    printf("%zu\n", output);
 
     return 0;
 }
