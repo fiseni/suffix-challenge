@@ -3,8 +3,7 @@
 
 static void build_parts(const char *partsPath, SourceData *data);
 static void build_masterParts(const char *masterPartsPath, SourceData *data);
-static int compare_mp_by_code_length_asc(const void *a, const void *b);
-static int compare_part_by_code_length_asc(const void *a, const void *b);
+static int compare_by_code_length_asc(const void *a, const void *b);
 
 const SourceData *source_data_read(const char *partsFile, const char *masterPartsFile) {
     SourceData *data = (SourceData *)malloc(sizeof(*data));
@@ -68,7 +67,7 @@ static void build_parts(const char *partsPath, SourceData *data) {
         partsIndex++;
     }
 
-    qsort(partsAsc, partsIndex, sizeof(*partsAsc), compare_part_by_code_length_asc);
+    qsort(partsAsc, partsIndex, sizeof(*partsAsc), compare_by_code_length_asc);
 
     data->partsOriginal = parts;
     data->partsOriginalCount = partsIndex;
@@ -81,11 +80,11 @@ static void build_masterParts(const char *masterPartsPath, SourceData *data) {
     size_t contentSize;
     char *block = read_file(masterPartsPath, 2, &contentSize, &lineCount);
 
-    MasterPart *masterParts = malloc(lineCount * sizeof(*masterParts));
+    Part *masterParts = malloc(lineCount * sizeof(*masterParts));
     CHECK_ALLOC(masterParts);
-    MasterPart *masterPartsAsc = malloc(lineCount * sizeof(*masterPartsAsc));
+    Part *masterPartsAsc = malloc(lineCount * sizeof(*masterPartsAsc));
     CHECK_ALLOC(masterPartsAsc);
-    MasterPart *masterPartsAscNh = malloc(lineCount * sizeof(*masterPartsAscNh));
+    Part *masterPartsAscNh = malloc(lineCount * sizeof(*masterPartsAscNh));
     CHECK_ALLOC(masterPartsAscNh);
 
     size_t mpIndex = 0;
@@ -131,8 +130,8 @@ static void build_masterParts(const char *masterPartsPath, SourceData *data) {
         stringStartIndex = i + 1;
     }
 
-    qsort(masterPartsAsc, mpIndex, sizeof(*masterPartsAsc), compare_mp_by_code_length_asc);
-    qsort(masterPartsAscNh, mpNohIndex, sizeof(*masterPartsAscNh), compare_mp_by_code_length_asc);
+    qsort(masterPartsAsc, mpIndex, sizeof(*masterPartsAsc), compare_by_code_length_asc);
+    qsort(masterPartsAscNh, mpNohIndex, sizeof(*masterPartsAscNh), compare_by_code_length_asc);
 
     data->masterPartsOriginal = masterParts;
     data->masterPartsOriginalCount = mpIndex;
@@ -142,21 +141,13 @@ static void build_masterParts(const char *masterPartsPath, SourceData *data) {
     data->masterPartsAscNhCount = mpNohIndex;
 }
 
-static int compare_mp_by_code_length_asc(const void *a, const void *b) {
-    const MasterPart *mpA = (const MasterPart *)a;
-    const MasterPart *mpB = (const MasterPart *)b;
-    return (mpA->codeLength < mpB->codeLength) ? -1
-        : (mpA->codeLength > mpB->codeLength) ? 1
-        : (mpA->index < mpB->index) ? -1 : (mpA->index > mpB->index) ? 1 : 0;
+static int compare_by_code_length_asc(const void *a, const void *b) {
+    const Part *partA = (const Part *)a;
+    const Part *partB = (const Part *)b;
+    return (partA->codeLength < partB->codeLength) ? -1
+        : (partA->codeLength > partB->codeLength) ? 1
+        : (partA->index < partB->index) ? -1 : (partA->index > partB->index) ? 1 : 0;
 }
-static int compare_part_by_code_length_asc(const void *a, const void *b) {
-    const Part *pA = (const Part *)a;
-    const Part *pB = (const Part *)b;
-    return (pA->codeLength < pB->codeLength) ? -1
-        : (pA->codeLength > pB->codeLength) ? 1
-        : (pA->index < pB->index) ? -1 : (pA->index > pB->index) ? 1 : 0;
-}
-
 
 /*
 * By applying simple qsort, the whole app is 50% faster.
@@ -164,13 +155,7 @@ static int compare_part_by_code_length_asc(const void *a, const void *b) {
 * However, in case of ties, it might return any of them.
 * Requirements specify for ties to return the first masterParts in the file.
 */
-//static int compare_mp_by_code_length_asc(const void *a, const void *b) {
-//    size_t lenA = ((const MasterPart *)a)->codeLength;
-//    size_t lenB = ((const MasterPart *)b)->codeLength;
-//    return lenA < lenB ? -1 : lenA > lenB ? 1 : 0;
-//}
-//
-//static int compare_part_by_code_length_asc(const void *a, const void *b) {
+//static int compare_by_code_length_asc(const void *a, const void *b) {
 //    size_t lenA = ((const Part *)a)->codeLength;
 //    size_t lenB = ((const Part *)b)->codeLength;
 //    return lenA < lenB ? -1 : lenA > lenB ? 1 : 0;

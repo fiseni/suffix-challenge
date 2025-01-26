@@ -41,7 +41,7 @@ const char *processor_find_match(const char *partCode, size_t partCodeLength) {
 }
 
 void processor_initialize(const SourceData *data) {
-    ctx.data = (SourceData*)data;
+    ctx.data = (SourceData *)data;
     ctx.dictionary = htable_sizet_create(data->partsAscCount);
     build_suffix_tables(&ctx);
 
@@ -66,40 +66,31 @@ void processor_initialize(const SourceData *data) {
     }
 
     for (long i = (long)data->masterPartsAscCount - 1; i >= 0; i--) {
-        MasterPart mp = data->masterPartsAsc[i];
+        Part masterPart = data->masterPartsAsc[i];
 
-        HTableSizeTList *partsBySuffix = ctx.partSuffixesByLength[mp.codeLength];
+        HTableSizeTList *partsBySuffix = ctx.partSuffixesByLength[masterPart.codeLength];
         if (partsBySuffix) {
-            const ListItem *originalParts = htable_sizetlist_search(partsBySuffix, mp.code, mp.codeLength);
+            const ListItem *originalParts = htable_sizetlist_search(partsBySuffix, masterPart.code, masterPart.codeLength);
             while (originalParts) {
                 size_t originalPartIndex = originalParts->value;
                 Part part = data->partsAsc[originalPartIndex];
-                htable_sizet_insert_if_not_exists(ctx.dictionary, part.code, part.codeLength, mp.index);
+                htable_sizet_insert_if_not_exists(ctx.dictionary, part.code, part.codeLength, masterPart.index);
                 originalParts = originalParts->next;
             }
         }
     }
 }
 
-
 void processor_clean() {
     for (size_t length = 0; length < MAX_STRING_LENGTH; length++) {
-        if (ctx.mpSuffixesByLength[length]) {
-            htable_sizet_free(ctx.mpSuffixesByLength[length]);
-        }
-        if (ctx.mpNhSuffixesByLength[length]) {
-            htable_sizet_free(ctx.mpNhSuffixesByLength[length]);
-        }
-    }
-    for (size_t length = 0; length < MAX_STRING_LENGTH; length++) {
-        if (ctx.partSuffixesByLength[length]) {
-            htable_sizetlist_free(ctx.partSuffixesByLength[length]);
-        }
+        htable_sizet_free(ctx.mpSuffixesByLength[length]);
+        htable_sizet_free(ctx.mpNhSuffixesByLength[length]);
+        htable_sizetlist_free(ctx.partSuffixesByLength[length]);
     }
     htable_sizet_free(ctx.dictionary);
 }
 
-static void build_suffix_tables(Context *ctx)     {
+static void build_suffix_tables(Context *ctx) {
     size_t mpStartIndexByLength[MAX_STRING_LENGTH] = { 0 };
     size_t mpNhStartIndexByLength[MAX_STRING_LENGTH] = { 0 };
     size_t partStartIndexByLength[MAX_STRING_LENGTH] = { 0 };
@@ -164,12 +155,12 @@ static thread_ret_t create_suffix_table_for_mp_code(thread_arg_t arg) {
     ThreadArgs *args = (ThreadArgs *)arg;
     size_t startIndex = args->startIndex;
     size_t suffixLength = args->suffixLength;
-    const MasterPart *masterPartsAsc = args->ctx->data->masterPartsAsc;
+    const Part *masterPartsAsc = args->ctx->data->masterPartsAsc;
     size_t masterPartsAscCount = args->ctx->data->masterPartsAscCount;
 
     HTableSizeT *table = htable_sizet_create(masterPartsAscCount - startIndex);
     for (size_t i = startIndex; i < masterPartsAscCount; i++) {
-        MasterPart mp = masterPartsAsc[i];
+        Part mp = masterPartsAsc[i];
         const char *suffix = mp.code + (mp.codeLength - suffixLength);
         htable_sizet_insert_if_not_exists(table, suffix, suffixLength, mp.index);
     }
@@ -181,12 +172,12 @@ static thread_ret_t create_suffix_table_for_mp_codeNh(thread_arg_t arg) {
     ThreadArgs *args = (ThreadArgs *)arg;
     size_t startIndex = args->startIndex;
     size_t suffixLength = args->suffixLength;
-    const MasterPart *masterPartsAscNh = args->ctx->data->masterPartsAscNh;
+    const Part *masterPartsAscNh = args->ctx->data->masterPartsAscNh;
     size_t masterPartsAscNhCount = args->ctx->data->masterPartsAscNhCount;
 
     HTableSizeT *table = htable_sizet_create(masterPartsAscNhCount - startIndex);
     for (size_t i = startIndex; i < masterPartsAscNhCount; i++) {
-        MasterPart mp = masterPartsAscNh[i];
+        Part mp = masterPartsAscNh[i];
         const char *suffix = mp.code + (mp.codeLength - suffixLength);
         htable_sizet_insert_if_not_exists(table, suffix, suffixLength, mp.index);
     }

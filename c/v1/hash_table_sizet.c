@@ -75,7 +75,9 @@ void htable_sizet_insert_if_not_exists(HTableSizeT *table, const char *key, size
 }
 
 void htable_sizet_free(HTableSizeT *table) {
-    free(table->block);
-    free(table->buckets);
-    free(table);
+    if (table) {
+        free(table->block);
+        free(table->buckets);
+        free(table);
+    }
 }

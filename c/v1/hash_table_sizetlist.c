@@ -92,8 +92,10 @@ void htable_sizetlist_add(HTableSizeTList *table, const char *key, size_t keyLen
 }
 
 void htable_sizetlist_free(HTableSizeTList *table) {
-    free(table->blockEntry);
-    free(table->block);
-    free(table->buckets);
-    free(table);
+    if (table) {
+        free(table->blockEntry);
+        free(table->block);
+        free(table->buckets);
+        free(table);
+    }
 }

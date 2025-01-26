@@ -10,12 +10,6 @@
 // Based on the requirements we should ignore part codes with less than 3 characters.
 #define MIN_STRING_LENGTH ((size_t)3)
 
-typedef struct MasterPart {
-    const char *code;
-    size_t codeLength;
-    size_t index;
-} MasterPart;
-
 typedef struct Part {
     const char *code;
     size_t codeLength;
@@ -23,11 +17,11 @@ typedef struct Part {
 } Part;
 
 typedef struct SourceData {
-    const MasterPart *masterPartsOriginal;
+    const Part *masterPartsOriginal;
     size_t masterPartsOriginalCount;
-    const MasterPart *masterPartsAsc;
+    const Part *masterPartsAsc;
     size_t masterPartsAscCount;
-    const MasterPart *masterPartsAscNh;
+    const Part *masterPartsAscNh;
     size_t masterPartsAscNhCount;
 
     const Part *partsOriginal;
