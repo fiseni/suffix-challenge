@@ -29,27 +29,27 @@ typedef struct ListItem {
     struct ListItem *next;
 } ListItem;
 
-typedef struct EntrySizeList {
+typedef struct EntrySizeTList {
     const char *key;
     ListItem *list;
-    struct EntrySizeList *next;
-} EntrySizeList;
+    struct EntrySizeTList *next;
+} EntrySizeTList;
 
-typedef struct HTableSizeList {
-    EntrySizeList **buckets;
+typedef struct HTableSizeTList {
+    EntrySizeTList **buckets;
     size_t size;
-    EntrySizeList *blockEntry;
+    EntrySizeTList *blockEntry;
     size_t blockEntryCount;
     size_t blockEntryIndex;
     ListItem *block;
     size_t blockCount;
     size_t blockIndex;
-} HTableSizeList;
+} HTableSizeTList;
 
-HTableSizeList *htable_sizelist_create(size_t size);
-const ListItem *htable_sizelist_search(const HTableSizeList *table, const char *key, size_t keyLength);
-void htable_sizelist_add(HTableSizeList *table, const char *key, size_t keyLength, size_t value);
-void htable_sizelist_free(HTableSizeList *table);
+HTableSizeTList *htable_sizetlist_create(size_t size);
+const ListItem *htable_sizetlist_search(const HTableSizeTList *table, const char *key, size_t keyLength);
+void htable_sizetlist_add(HTableSizeTList *table, const char *key, size_t keyLength, size_t value);
+void htable_sizetlist_free(HTableSizeTList *table);
 // #########################################################
 
 

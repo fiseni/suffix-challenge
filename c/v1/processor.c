@@ -8,7 +8,7 @@ typedef struct Context {
     HTableSizeT *dictionary;
     HTableSizeT *mpSuffixesByLength[MAX_STRING_LENGTH];
     HTableSizeT *mpNhSuffixesByLength[MAX_STRING_LENGTH];
-    HTableSizeList *partSuffixesByLength[MAX_STRING_LENGTH];
+    HTableSizeTList *partSuffixesByLength[MAX_STRING_LENGTH];
 } Context;
 
 typedef struct ThreadArgs {
@@ -68,9 +68,9 @@ void processor_initialize(const SourceData *data) {
     for (long i = (long)data->masterPartsAscCount - 1; i >= 0; i--) {
         MasterPart mp = data->masterPartsAsc[i];
 
-        HTableSizeList *partsBySuffix = ctx.partSuffixesByLength[mp.codeLength];
+        HTableSizeTList *partsBySuffix = ctx.partSuffixesByLength[mp.codeLength];
         if (partsBySuffix) {
-            const ListItem *originalParts = htable_sizelist_search(partsBySuffix, mp.code, mp.codeLength);
+            const ListItem *originalParts = htable_sizetlist_search(partsBySuffix, mp.code, mp.codeLength);
             while (originalParts) {
                 size_t originalPartIndex = originalParts->value;
                 Part part = data->partsAsc[originalPartIndex];
@@ -93,7 +93,7 @@ void processor_clean() {
     }
     for (size_t length = 0; length < MAX_STRING_LENGTH; length++) {
         if (ctx.partSuffixesByLength[length]) {
-            htable_sizelist_free(ctx.partSuffixesByLength[length]);
+            htable_sizetlist_free(ctx.partSuffixesByLength[length]);
         }
     }
     htable_sizet_free(ctx.dictionary);
@@ -201,11 +201,11 @@ static thread_ret_t create_suffix_table_for_part_code(thread_arg_t arg) {
     const Part *partsAsc = args->ctx->data->partsAsc;
     size_t partsAscCount = args->ctx->data->partsAscCount;
 
-    HTableSizeList *table = htable_sizelist_create(partsAscCount - startIndex);
+    HTableSizeTList *table = htable_sizetlist_create(partsAscCount - startIndex);
     for (size_t i = startIndex; i < partsAscCount; i++) {
         Part part = partsAsc[i];
         const char *suffix = part.code + (part.codeLength - suffixLength);
-        htable_sizelist_add(table, suffix, suffixLength, i);
+        htable_sizetlist_add(table, suffix, suffixLength, i);
     }
     args->ctx->partSuffixesByLength[suffixLength] = table;
     return 0;

@@ -21,7 +21,7 @@
     <ClCompile Include="source_data.c">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="hash_table_sizelist.c">
+    <ClCompile Include="hash_table_sizetlist.c">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="thread_utils.c">

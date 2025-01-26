@@ -18,13 +18,13 @@ static bool str_equals_same_length(const char *s1, const char *s2, size_t length
     return true;
 }
 
-HTableSizeList *htable_sizelist_create(size_t size) {
+HTableSizeTList *htable_sizetlist_create(size_t size) {
     size_t tableSize = next_power_of_two(size);
     if (tableSize == 0) {
         // Some default powerOfTwo value in case of overflow.
         tableSize = 32;
     }
-    HTableSizeList *table = malloc(sizeof(*table));
+    HTableSizeTList *table = malloc(sizeof(*table));
     CHECK_ALLOC(table);
     table->size = tableSize;
     table->buckets = malloc(sizeof(*table->buckets) * tableSize);
@@ -43,9 +43,9 @@ HTableSizeList *htable_sizelist_create(size_t size) {
     return table;
 }
 
-const ListItem *htable_sizelist_search(const HTableSizeList *table, const char *key, size_t keyLength) {
+const ListItem *htable_sizetlist_search(const HTableSizeTList *table, const char *key, size_t keyLength) {
     size_t index = hash(table->size, key, keyLength);
-    EntrySizeList *entry = table->buckets[index];
+    EntrySizeTList *entry = table->buckets[index];
     while (entry) {
         if (str_equals_same_length(entry->key, key, keyLength)) {
             return entry->list;
@@ -55,7 +55,7 @@ const ListItem *htable_sizelist_search(const HTableSizeList *table, const char *
     return NULL;
 }
 
-static void linked_list_add(HTableSizeList *table, EntrySizeList *entry, size_t value) {
+static void linked_list_add(HTableSizeTList *table, EntrySizeTList *entry, size_t value) {
     // In our scenario, we'll never add more items than the initially size passed during table creation.
     // So, we're sure that we won't run out of space. No need to malloc again.
     assert(table->blockIndex < table->blockCount);
@@ -66,9 +66,9 @@ static void linked_list_add(HTableSizeList *table, EntrySizeList *entry, size_t 
     entry->list = newItem;
 }
 
-void htable_sizelist_add(HTableSizeList *table, const char *key, size_t keyLength, size_t value) {
+void htable_sizetlist_add(HTableSizeTList *table, const char *key, size_t keyLength, size_t value) {
     size_t index = hash(table->size, key, keyLength);
-    EntrySizeList *entry = table->buckets[index];
+    EntrySizeTList *entry = table->buckets[index];
 
     while (entry) {
         // We know this table is always used with same key length.
@@ -83,7 +83,7 @@ void htable_sizelist_add(HTableSizeList *table, const char *key, size_t keyLengt
     // So, we're sure that we won't run out of space. No need to malloc again.
     assert(table->blockEntryIndex < table->blockEntryCount);
 
-    EntrySizeList *newEntry = &table->blockEntry[table->blockEntryIndex++];
+    EntrySizeTList *newEntry = &table->blockEntry[table->blockEntryIndex++];
     newEntry->key = key;
     newEntry->list = NULL;
     linked_list_add(table, newEntry, value);
@@ -91,7 +91,7 @@ void htable_sizelist_add(HTableSizeList *table, const char *key, size_t keyLengt
     table->buckets[index] = newEntry;
 }
 
-void htable_sizelist_free(HTableSizeList *table) {
+void htable_sizetlist_free(HTableSizeTList *table) {
     free(table->blockEntry);
     free(table->block);
     free(table->buckets);
