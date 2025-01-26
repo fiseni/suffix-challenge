@@ -27,6 +27,7 @@ typedef struct ThreadArgs {
 static void build_masterPartsInfo(const SourceData *data, MasterPartsInfo *mpInfo);
 static void build_partsInfo(const SourceData *data, PartsInfo *partsInfo);
 static void free_info_allocations(MasterPartsInfo masterPartsInfo, PartsInfo partsInfo);
+static void create_suffix_tables(void *info, size_t *startIndexByLength, thread_func_t func);
 static thread_ret_t create_suffix_table_for_mp_code(thread_arg_t arg);
 static thread_ret_t create_suffix_table_for_mp_codeNh(thread_arg_t arg);
 static thread_ret_t create_suffix_table_for_part_code(thread_arg_t arg);
@@ -73,6 +74,7 @@ void processor_initialize(const SourceData *data) {
 
     for (long i = (long)masterPartsInfo.masterPartsCount - 1; i >= 0; i--) {
         MasterPart mp = masterPartsInfo.masterParts[i];
+
         HTableSizeList *partsBySuffix = partsInfo.suffixesByLength[mp.codeLength];
         if (partsBySuffix) {
             const ListItem *originalParts = htable_sizelist_search(partsBySuffix, mp.code, mp.codeLength);
@@ -156,40 +158,52 @@ static void build_masterPartsInfo(const SourceData *data, MasterPartsInfo *mpInf
     backward_fill(startIndexByLength);
     backward_fill(startIndexByLengthNoHyphens);
 
-    // Create a thread for each suffixesByLength table
+    create_suffix_tables(mpInfo, startIndexByLength, create_suffix_table_for_mp_code);
+    create_suffix_tables(mpInfo, startIndexByLengthNoHyphens, create_suffix_table_for_mp_codeNh);
+}
+
+static void build_partsInfo(const SourceData *data, PartsInfo *partsInfo) {
+    // Build parts
+    size_t partsCount = data->partsCount;
+    Part *parts = malloc(sizeof(*parts) * partsCount);
+    CHECK_ALLOC(parts);
+    memcpy(parts, data->parts, partsCount * sizeof(*parts));
+    qsort(parts, partsCount, sizeof(*parts), compare_part_by_code_length_asc);
+
+    partsInfo->parts = parts;
+    partsInfo->partsCount = partsCount;
+
+    // Create and populate start indices.
+    size_t startIndexByLength[MAX_STRING_LENGTH] = { 0 };
+    for (size_t length = 0; length < MAX_STRING_LENGTH; length++) {
+        startIndexByLength[length] = MAX_VALUE;
+    }
+    for (size_t i = 0; i < partsCount; i++) {
+        size_t length = parts[i].codeLength;
+        if (startIndexByLength[length] == MAX_VALUE) {
+            startIndexByLength[length] = i;
+        }
+    }
+    backward_fill(startIndexByLength);
+
+    create_suffix_tables(partsInfo, startIndexByLength, create_suffix_table_for_part_code);
+}
+
+static void create_suffix_tables(void *info, size_t *startIndexByLength, thread_func_t func) {
     thread_t threads[MAX_STRING_LENGTH] = { 0 };
     ThreadArgs threadArgs[MAX_STRING_LENGTH] = { 0 };
     for (size_t length = MIN_STRING_LENGTH; length < MAX_STRING_LENGTH; length++) {
         if (startIndexByLength[length] != MAX_VALUE) {
-            threadArgs[length].info = mpInfo;
+            threadArgs[length].info = info;
             threadArgs[length].suffixLength = length;
             threadArgs[length].startIndex = startIndexByLength[length];
-            int status = create_thread(&threads[length], create_suffix_table_for_mp_code, &threadArgs[length]);
+            int status = create_thread(&threads[length], func, &threadArgs[length]);
             CHECK_THREAD_CREATE_STATUS(status, length);
         }
     }
     for (size_t length = MIN_STRING_LENGTH; length < MAX_STRING_LENGTH; length++) {
         if (threads[length]) {
             int status = join_thread(threads[length], NULL);
-            CHECK_THREAD_JOIN_STATUS(status, length);
-        }
-    }
-
-    // Create a thread for each suffixesByNoHyphensLength table
-    thread_t threads2[MAX_STRING_LENGTH] = { 0 };
-    ThreadArgs threadArgs2[MAX_STRING_LENGTH] = { 0 };
-    for (size_t length = MIN_STRING_LENGTH; length < MAX_STRING_LENGTH; length++) {
-        if (startIndexByLengthNoHyphens[length] != MAX_VALUE) {
-            threadArgs2[length].info = mpInfo;
-            threadArgs2[length].suffixLength = length;
-            threadArgs2[length].startIndex = startIndexByLengthNoHyphens[length];
-            int status = create_thread(&threads2[length], create_suffix_table_for_mp_codeNh, &threadArgs2[length]);
-            CHECK_THREAD_CREATE_STATUS(status, length);
-        }
-    }
-    for (size_t length = MIN_STRING_LENGTH; length < MAX_STRING_LENGTH; length++) {
-        if (threads2[length]) {
-            int status = join_thread(threads2[length], NULL);
             CHECK_THREAD_JOIN_STATUS(status, length);
         }
     }
@@ -231,50 +245,6 @@ static thread_ret_t create_suffix_table_for_mp_codeNh(thread_arg_t arg) {
     }
     mpInfo->suffixesByNoHyphensLength[suffixLength] = table;
     return 0;
-}
-
-static void build_partsInfo(const SourceData *data, PartsInfo *partsInfo) {
-    // Build parts
-    size_t partsCount = data->partsCount;
-    Part *parts = malloc(sizeof(*parts) * partsCount);
-    CHECK_ALLOC(parts);
-    memcpy(parts, data->parts, partsCount * sizeof(*parts));
-    qsort(parts, partsCount, sizeof(*parts), compare_part_by_code_length_asc);
-
-    partsInfo->parts = parts;
-    partsInfo->partsCount = partsCount;
-
-    // Create and populate start indices.
-    size_t startIndexByLength[MAX_STRING_LENGTH] = { 0 };
-    for (size_t length = 0; length < MAX_STRING_LENGTH; length++) {
-        startIndexByLength[length] = MAX_VALUE;
-    }
-    for (size_t i = 0; i < partsCount; i++) {
-        size_t length = parts[i].codeLength;
-        if (startIndexByLength[length] == MAX_VALUE) {
-            startIndexByLength[length] = i;
-        }
-    }
-    backward_fill(startIndexByLength);
-
-    // Create a thread for each suffixesByLength table
-    thread_t threads[MAX_STRING_LENGTH] = { 0 };
-    ThreadArgs threadArgs[MAX_STRING_LENGTH] = { 0 };
-    for (size_t length = MIN_STRING_LENGTH; length < MAX_STRING_LENGTH; length++) {
-        if (startIndexByLength[length] != MAX_VALUE) {
-            threadArgs[length].info = partsInfo;
-            threadArgs[length].suffixLength = length;
-            threadArgs[length].startIndex = startIndexByLength[length];
-            int status = create_thread(&threads[length], create_suffix_table_for_part_code, &threadArgs[length]);
-            CHECK_THREAD_CREATE_STATUS(status, length);
-        }
-    }
-    for (size_t length = MIN_STRING_LENGTH; length < MAX_STRING_LENGTH; length++) {
-        if (threads[length]) {
-            int status = join_thread(threads[length], NULL);
-            CHECK_THREAD_JOIN_STATUS(status, length);
-        }
-    }
 }
 
 static thread_ret_t create_suffix_table_for_part_code(thread_arg_t arg) {
