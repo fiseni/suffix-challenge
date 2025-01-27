@@ -1,6 +1,8 @@
 # Suffix Matching Challenge
 
-This is inspired by the following [article](https://fiseni.com/posts/the-journey-to-630x-faster-batch-job/). But, in this challenge, we'll slightly modify the original requirements. To make it easier to benchmark implementations across various languages we'll measure the wall time (including reading and writing to disk).
+This is inspired by the following [article](https://fiseni.com/posts/the-journey-to-630x-faster-batch-job/). We'll slightly modify the original requirements for this challenge. To make it easier to benchmark implementations across various languages, we'll measure the wall time (including reading and writing to disk).
+
+This is not about language wars. The challenge is to find the best solution for the given problem.
 
 ## Challenge Description
 
@@ -50,6 +52,13 @@ Output:
 - The repository includes an `expected.txt` file that contains the expected matches. The produced `results.txt` file should be identical to `expected.txt`. 
 - You should not make assumptions based on these specific input files (e.g. size, string length distribution, etc.).
 
+## How to run
+
+We're using [hyperfine](https://github.com/sharkdp/hyperfine) to run the benchmarks. It is available on all OSes.
+Once you have it installed, you can simply execute the `run.sh`/`run.bat` scripts.
+
+You may choose to run all benchmarks or only a specific implementation. The scripts also will check the correctness of the implementations and compare the results with the expected output.
+
 ## Contributions
 
 Everyone is welcome to participate in the challenge. 
@@ -60,8 +69,11 @@ Everyone is welcome to participate in the challenge.
 
 ## Benchmark Results
 
-| Command | Mean [s] | Min [s] | Max [s] | Relative |
-|:---|---:|---:|---:|---:|
-| `C# v1` | 1.556 ± 0.027 | 1.529 | 1.582 | 1.00 |
-| `C# v1 AOT` | 1.408 ± 0.005 | 1.403 | 1.412 | 1.00 |
+I'm running the benchmarks locally for now (Intel i7-11700K @ 3.60GHz). We may automate it in the future if necessary. The results are as follows:
+
+| Command | Mean [s] | Min [s] | Max [s] |
+|:---|---:|---:|---:|
+| `C v1` | 416.1 ± 7.1 | 411.4 | 424.2 |
+| `C# v1 AOT` | 1.408 ± 0.005 | 1.403 | 1.412 |
+| `C# v1` | 1.556 ± 0.027 | 1.529 | 1.582 |
 
