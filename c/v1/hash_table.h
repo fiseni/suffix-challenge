@@ -1,6 +1,8 @@
 #ifndef HASH_TABLE_H
 #define HASH_TABLE_H
 
+#include <stdbool.h>
+
 // #########################################################
 // Hash table storing a size_t.
 typedef struct EntrySizeT {
@@ -19,7 +21,7 @@ typedef struct HTableSizeT {
 } HTableSizeT;
 
 HTableSizeT *htable_sizet_create(size_t size);
-size_t htable_sizet_search(const HTableSizeT *table, const char *key, size_t keyLength);
+bool htable_sizet_search(const HTableSizeT *table, const char *key, size_t keyLength, size_t *outValue);
 void htable_sizet_insert_if_not_exists(HTableSizeT *table, const char *key, size_t keyLength, size_t value);
 void htable_sizet_free(HTableSizeT *table);
 
@@ -50,7 +52,8 @@ typedef struct HTableSizeTList {
 
 HTableSizeTList *htable_sizetlist_create(size_t size);
 const ListItem *htable_sizetlist_search(const HTableSizeTList *table, const char *key, size_t keyLength);
-void htable_sizetlist_add(HTableSizeTList *table, const char *key, size_t keyLength, size_t value);
+// It always add the value. If key is present, it inserts in the beginning of the list.
+void htable_sizetlist_insert(HTableSizeTList *table, const char *key, size_t keyLength, size_t value);
 void htable_sizetlist_free(HTableSizeTList *table);
 // #########################################################
 

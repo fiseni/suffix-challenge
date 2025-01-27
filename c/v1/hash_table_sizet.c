@@ -42,26 +42,31 @@ HTableSizeT *htable_sizet_create(size_t size) {
 }
 
 // Used to avoid re-computing the hash value.
-static size_t search_internal(const HTableSizeT *table, const char *key, size_t keyLength, size_t index) {
+static bool search_internal(const HTableSizeT *table, const char *key, size_t keyLength, size_t index, size_t *outValue) {
     EntrySizeT *entry = table->buckets[index];
     while (entry) {
         if (str_equals_one_length(entry->key, key, keyLength)) {
-            return entry->value;
+            *outValue = entry->value;
+            return true;
         }
         entry = entry->next;
     }
-    return MAX_SIZE_T_VALUE;
+    return false;
 }
 
-size_t htable_sizet_search(const HTableSizeT *table, const char *key, size_t keyLength) {
+bool htable_sizet_search(const HTableSizeT *table, const char *key, size_t keyLength, size_t *outValue) {
+    if (table == NULL) {
+        return false;
+    }
+
     size_t index = hash(table->size, key, keyLength);
-    return search_internal(table, key, keyLength, index);
+    return search_internal(table, key, keyLength, index, outValue);
 }
 
 void htable_sizet_insert_if_not_exists(HTableSizeT *table, const char *key, size_t keyLength, size_t value) {
     size_t index = hash(table->size, key, keyLength);
-    size_t existing_value = search_internal(table, key, keyLength, index);
-    if (existing_value != MAX_SIZE_T_VALUE) {
+    size_t existing_value;
+    if (search_internal(table, key, keyLength, index, &existing_value)) {
         return;
     }
 

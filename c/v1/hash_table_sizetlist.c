@@ -47,6 +47,10 @@ HTableSizeTList *htable_sizetlist_create(size_t size) {
 }
 
 const ListItem *htable_sizetlist_search(const HTableSizeTList *table, const char *key, size_t keyLength) {
+    if (table == NULL) {
+        return NULL;
+    }
+
     size_t index = hash(table->size, key, keyLength);
     EntrySizeTList *entry = table->buckets[index];
     while (entry) {
@@ -69,7 +73,7 @@ static void linked_list_add(HTableSizeTList *table, EntrySizeTList *entry, size_
     entry->list = newItem;
 }
 
-void htable_sizetlist_add(HTableSizeTList *table, const char *key, size_t keyLength, size_t value) {
+void htable_sizetlist_insert(HTableSizeTList *table, const char *key, size_t keyLength, size_t value) {
     size_t index = hash(table->size, key, keyLength);
     EntrySizeTList *entry = table->buckets[index];
 

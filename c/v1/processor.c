@@ -31,11 +31,12 @@ const char *processor_find_match(const char *partCode, size_t partCodeLength) {
     char buffer[MAX_STRING_LENGTH];
     str_to_upper(partCode, partCodeLength, buffer);
 
-    size_t mpIndex = htable_sizet_search(ctx.dictionary, buffer, partCodeLength);
-    if (mpIndex == MAX_SIZE_T_VALUE) {
-        return NULL;
+    size_t mpIndex;
+    if (htable_sizet_search(ctx.dictionary, buffer, partCodeLength, &mpIndex)) {
+        return ctx.data->masterPartsOriginal[mpIndex].code;
     }
-    return ctx.data->masterPartsOriginal[mpIndex].code;
+
+    return NULL;
 }
 
 void processor_initialize(const SourceData *data) {
@@ -48,21 +49,14 @@ void processor_initialize(const SourceData *data) {
 
     for (size_t i = 0; i < data->partsAscCount; i++) {
         Part part = data->partsAsc[i];
+        size_t mpIndex;
 
-        HTableSizeT *masterPartsBySuffix = ctx.mpSuffixesByLength[part.codeLength];
-        if (masterPartsBySuffix) {
-            size_t mpIndex = htable_sizet_search(masterPartsBySuffix, part.code, part.codeLength);
-            if (mpIndex != MAX_SIZE_T_VALUE) {
-                htable_sizet_insert_if_not_exists(ctx.dictionary, part.code, part.codeLength, mpIndex);
-                continue;
-            }
+        if (htable_sizet_search(ctx.mpSuffixesByLength[part.codeLength], part.code, part.codeLength, &mpIndex)) {
+            htable_sizet_insert_if_not_exists(ctx.dictionary, part.code, part.codeLength, mpIndex);
+            continue;
         }
-        masterPartsBySuffix = ctx.mpNhSuffixesByLength[part.codeLength];
-        if (masterPartsBySuffix) {
-            size_t mpIndex = htable_sizet_search(masterPartsBySuffix, part.code, part.codeLength);
-            if (mpIndex != MAX_SIZE_T_VALUE) {
-                htable_sizet_insert_if_not_exists(ctx.dictionary, part.code, part.codeLength, mpIndex);
-            }
+        if (htable_sizet_search(ctx.mpNhSuffixesByLength[part.codeLength], part.code, part.codeLength, &mpIndex)) {
+            htable_sizet_insert_if_not_exists(ctx.dictionary, part.code, part.codeLength, mpIndex);
         }
     }
 
@@ -70,14 +64,12 @@ void processor_initialize(const SourceData *data) {
         Part masterPart = data->masterPartsAsc[i];
 
         HTableSizeTList *partsBySuffix = ctx.partSuffixesByLength[masterPart.codeLength];
-        if (partsBySuffix) {
-            const ListItem *originalParts = htable_sizetlist_search(partsBySuffix, masterPart.code, masterPart.codeLength);
-            while (originalParts) {
-                size_t originalPartIndex = originalParts->value;
-                Part part = data->partsAsc[originalPartIndex];
-                htable_sizet_insert_if_not_exists(ctx.dictionary, part.code, part.codeLength, masterPart.index);
-                originalParts = originalParts->next;
-            }
+        const ListItem *originalPartIndices = htable_sizetlist_search(partsBySuffix, masterPart.code, masterPart.codeLength);
+        while (originalPartIndices) {
+            size_t originalPartIndex = originalPartIndices->value;
+            Part part = data->partsAsc[originalPartIndex];
+            htable_sizet_insert_if_not_exists(ctx.dictionary, part.code, part.codeLength, masterPart.index);
+            originalPartIndices = originalPartIndices->next;
         }
     }
 }
@@ -136,7 +128,7 @@ static thread_ret_t create_suffix_table_for_parts(thread_arg_t arg) {
     for (size_t i = startIndex; i < partsAscCount; i++) {
         Part part = partsAsc[i];
         const char *suffix = part.code + (part.codeLength - suffixLength);
-        htable_sizetlist_add(table, suffix, suffixLength, i);
+        htable_sizetlist_insert(table, suffix, suffixLength, i);
     }
     args->ctx->partSuffixesByLength[suffixLength] = table;
     return 0;
