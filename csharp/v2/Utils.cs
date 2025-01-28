@@ -90,6 +90,24 @@ public static class Utils
         return new ReadOnlyMemory<byte>(destination, startIndex, destinationSpan.Length);
     }
 
+    public static ReadOnlySpan<byte> GetUpperSpan(ReadOnlyMemory<byte> source, Span<byte> destination)
+    {
+        var sourceSpan = source.Span;
+
+        for (int i = 0; i < sourceSpan.Length; i++)
+        {
+            if ((uint)(sourceSpan[i] - 97) <= 25) // (uint)(122 - 97)
+            {
+                destination[i] = (byte)(sourceSpan[i] & 0x5F);
+            }
+            else
+            {
+                destination[i] = sourceSpan[i];
+            }
+        }
+        return destination;
+    }
+
     public static int GetLineCount(ReadOnlySpan<byte> span)
     {
         var lines = 0;

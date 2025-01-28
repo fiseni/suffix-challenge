@@ -1,6 +1,5 @@
 ﻿using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
-using System.Text;
 
 namespace v2;
 
@@ -29,11 +28,9 @@ public class SourceData
     public ReadOnlyMemory<byte>[] PartsOriginal;
     public ReadOnlyMemory<byte>[] MasterPartsOriginal;
 
-    public ReadOnlyMemory<Part> PartsAsc;
-    public ReadOnlyMemory<Part> MasterPartsAsc;
-    public ReadOnlyMemory<Part> MasterPartsAscNh;
-
-    private static readonly StableSortComparer _stableSortComparer = new();
+    public Part[] PartsAsc;
+    public Part[] MasterPartsAsc;
+    public Part[] MasterPartsAscNh;
 
     public SourceData(string partsFile, string masterPartsFile)
     {
@@ -75,10 +72,9 @@ public class SourceData
             stringStartIndex = i + 1;
         }
 
-        Array.Sort(partsAsc, _stableSortComparer);
-
+        Array.Sort(partsAsc, StableComparer());
+        PartsAsc = partsAsc;
         PartsOriginal = partsOriginal;
-        PartsAsc = new ReadOnlyMemory<Part>(partsAsc, 0, partsIndex);
     }
 
     [MemberNotNull(nameof(MasterPartsOriginal), nameof(MasterPartsAsc), nameof(MasterPartsAscNh))]
@@ -130,26 +126,40 @@ public class SourceData
             stringStartIndex = i + 1;
         }
 
-        Array.Sort(mpAsc, 0, mpIndex, _stableSortComparer);
-        Array.Sort(mpAscNh, 0, mpNhIndex, _stableSortComparer);
 
         MasterPartsOriginal = mpOriginal;
-        MasterPartsAsc = new ReadOnlyMemory<Part>(mpAsc, 0, mpIndex);
-        MasterPartsAscNh = new ReadOnlyMemory<Part>(mpAscNh, 0, mpNhIndex);
+
+        Array.Resize(ref mpAsc, mpIndex);
+        Array.Resize(ref mpAscNh, mpNhIndex);
+        Array.Sort(mpAsc, StableComparer());
+        Array.Sort(mpAscNh, StableComparer());
+        MasterPartsAsc = mpAsc;
+        MasterPartsAscNh = mpAscNh;
+
+        //MasterPartsAsc = mpAsc.Where(x=>x is not null).OrderBy(x=>x.Code.Length).ToArray();
+        //MasterPartsAscNh = mpAscNh.Where(x => x is not null).OrderBy(x => x.Code.Length).ToArray();
     }
 
     // We need a stable sort and Array.Sort is not (OrderBy is stable).
     // So we need to compare Index if the lengths are equal.
+    private static Comparison<Part> StableComparer()
+    {
+        return (x, y) => x.Code.Length == y.Code.Length ? x.Index.CompareTo(y.Index) : x.Code.Length.CompareTo(y.Code.Length);
+        //return (x, y) => x.Code.Length < y.Code.Length ? -1
+        //    : x.Code.Length > y.Code.Length ? 1
+        //    : x.Index < y.Index ? -1 : x.Index > y.Index ? 1 : 0;
+    }
+
     private class StableSortComparer : IComparer<Part>
     {
         public int Compare(Part? x, Part? y)
             => x!.Code.Length == y!.Code.Length ? x.Index.CompareTo(y.Index) : x.Code.Length.CompareTo(y.Code.Length);
 
-        public int Compare2(Part? x, Part? y)
-        {
-            return x!.Code.Length < y!.Code.Length ? -1
-                : x.Code.Length > y.Code.Length ? 1
-                : x.Index < y.Index ? -1 : x.Index > y.Index ? 1 : 0;
-        }
+        //public int Compare(Part? x, Part? y)
+        //{
+        //    return x!.Code.Length < y!.Code.Length ? -1
+        //        : x.Code.Length > y.Code.Length ? 1
+        //        : x.Index < y.Index ? -1 : x.Index > y.Index ? 1 : 0;
+        //}
     }
 }
