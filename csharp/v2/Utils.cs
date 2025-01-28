@@ -10,7 +10,6 @@ public static class Constants
     public const byte SPACE = 32;
     public const byte DASH = 45;
     public const byte SEMICOLON = 59;
-
 }
 
 public static class Utils

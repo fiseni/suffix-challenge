@@ -55,9 +55,9 @@ for /f "usebackq tokens=1,2,3,4,5,* delims=:" %%A in ("%impl_list_file%") do (
         echo.
         if errorlevel 1 exit /b 1
         if "%%E"=="" (
-            hyperfine -i --output=pipe --runs 5 --warmup 5 --export-markdown "%script_dir%\benchmarks\%%C_%%D.md" -n "%%B" "run.bat"
+            hyperfine -i --output=pipe --runs 10 --warmup 3 --export-markdown "%script_dir%\benchmarks\%%C_%%D.md" -n "%%B" "run.bat"
         ) else (
-            hyperfine -i --output=pipe --runs 5 --warmup 5 --export-markdown "%script_dir%\benchmarks\%%C_%%D_%%E.md" -n "%%B" "run.bat %%E"
+            hyperfine -i --output=pipe --runs 10 --warmup 3 --export-markdown "%script_dir%\benchmarks\%%C_%%D_%%E.md" -n "%%B" "run.bat %%E"
         )
         if errorlevel 1 exit /b 1
         call :compare_results "%script_dir%\data\expected.txt" "results.txt"

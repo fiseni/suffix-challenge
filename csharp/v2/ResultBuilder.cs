@@ -26,6 +26,7 @@ sealed class ResultBuilder
             _blockIndex += match.Value.Length;
             _matchCount++;
         }
+
         _block[_blockIndex++] = Constants.CR;
         _block[_blockIndex++] = Constants.LF;
     }

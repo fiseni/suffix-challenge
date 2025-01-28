@@ -44,9 +44,9 @@ run_impl() {
       rm -f "result.txt" >/dev/null 2>&1
       echo ""
       if [ "$tag" = "" ]; then
-        hyperfine -i --runs 5 --warmup 5 --export-markdown "$script_dir/benchmarks/${langdir}_${subdir}.md" -n "\"$desc\"" "\"./run.sh\""
+        hyperfine -i --runs 10 --warmup 3 --export-markdown "$script_dir/benchmarks/${langdir}_${subdir}.md" -n "\"$desc\"" "\"./run.sh\""
       else
-        hyperfine -i --runs 5 --warmup 5 --export-markdown "$script_dir/benchmarks/${langdir}_${subdir}_${tag}.md" -n "\"$desc\"" "./run.sh $tag"
+        hyperfine -i --runs 10 --warmup 3 --export-markdown "$script_dir/benchmarks/${langdir}_${subdir}_${tag}.md" -n "\"$desc\"" "./run.sh $tag"
       fi
 
       compare_results "$script_dir/data/expected.txt" "results.txt"
