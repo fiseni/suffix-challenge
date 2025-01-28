@@ -17,13 +17,13 @@ namespace v2;
  */
 
 [DebuggerDisplay("{System.Text.Encoding.ASCII.GetString(Code.ToArray())}")]
-public class Part(ReadOnlyMemory<byte> code, int index)
+public sealed class Part(ReadOnlyMemory<byte> code, int index)
 {
     public ReadOnlyMemory<byte> Code = code;
     public int Index = index;
 }
 
-public class SourceData
+public sealed class SourceData
 {
     public ReadOnlyMemory<byte>[] PartsOriginal;
     public ReadOnlyMemory<byte>[] MasterPartsOriginal;
@@ -129,6 +129,9 @@ public class SourceData
 
         MasterPartsOriginal = mpOriginal;
 
+        var stopwatch = new Stopwatch();
+        stopwatch.Start();
+
         Array.Resize(ref mpAsc, mpIndex);
         Array.Resize(ref mpAscNh, mpNhIndex);
         Array.Sort(mpAsc, StableComparer());
@@ -136,8 +139,11 @@ public class SourceData
         MasterPartsAsc = mpAsc;
         MasterPartsAscNh = mpAscNh;
 
-        //MasterPartsAsc = mpAsc.Where(x=>x is not null).OrderBy(x=>x.Code.Length).ToArray();
-        //MasterPartsAscNh = mpAscNh.Where(x => x is not null).OrderBy(x => x.Code.Length).ToArray();
+        //MasterPartsAsc = mpAsc.Take(mpIndex).OrderBy(x => x.Code.Length).ToArray();
+        //MasterPartsAscNh = mpAscNh.Take(mpNhIndex).OrderBy(x => x.Code.Length).ToArray();
+
+        stopwatch.Stop();
+        Console.WriteLine($"Building MasterParts: {stopwatch.ElapsedMilliseconds:n0}");
     }
 
     // We need a stable sort and Array.Sort is not (OrderBy is stable).

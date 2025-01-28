@@ -8,6 +8,10 @@ if exist bin (
     rmdir /s /q bin
 )
 
+if exist obj (
+    rmdir /s /q obj
+)
+
 if "%~1"=="aot" (
     dotnet publish v2_aot.csproj -o publish --nologo
 ) else (
