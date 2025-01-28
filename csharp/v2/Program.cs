@@ -1,5 +1,4 @@
-﻿using System.Text;
-using v2;
+﻿using v2;
 
 Run(args);
 
@@ -13,25 +12,15 @@ static void Run(string[] args)
 
     var sourceData = new SourceData(args[0], args[1]);
     var processor = new Processor(sourceData);
-
     var partsOriginal = sourceData.PartsOriginal;
-    var results = new string[partsOriginal.Length];
-    var matchCount = 0;
+    var resultBuilder = new ResultBuilder(args[2], partsOriginal.Length);
 
     for (int i = 0; i < partsOriginal.Length; i++)
     {
         var match = processor.FindMatch(partsOriginal[i]);
-        if (match is not null)
-        {
-            matchCount++;
-            results[i] = $"{Encoding.ASCII.GetString(partsOriginal[i].ToArray())};{Encoding.ASCII.GetString(match.Value.ToArray())}";
-        }
-        else
-        {
-            results[i] = $"{Encoding.ASCII.GetString(partsOriginal[i].ToArray())};";
-        }
+        resultBuilder.AddMatch(partsOriginal[i], match);
     }
 
-    File.WriteAllLines(args[2], results);
-    Console.WriteLine(matchCount);
+    resultBuilder.PrintMatchCount();
+    resultBuilder.WriteToFile();
 }
