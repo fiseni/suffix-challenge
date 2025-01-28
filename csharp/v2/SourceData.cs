@@ -20,7 +20,7 @@ namespace v2;
 public sealed class Part(ReadOnlyMemory<byte> code, int index)
 {
     public ReadOnlyMemory<byte> Code = code;
-    public int Index = index;
+    public int Index = index; // Index to the original records. Also used for stable sorting.
 }
 
 public sealed class SourceData
@@ -49,19 +49,20 @@ public sealed class SourceData
         var partsAsc = new Part[lineCount];
 
         var partsIndex = 0;
-        var stringStartIndex = 0;
+        var blockIndex = 0;
         var blockUpperIndex = 0;
 
         for (var i = 0; i < block.Length; i++)
         {
             // Also handle records that do not end with a newline
             if (block[i] != Constants.LF && i != block.Length - 1) continue;
+            if (block[i] != Constants.LF) i++;
 
-            var length = i > 0 && block[i - 1] == Constants.CR
-                ? i - stringStartIndex - 1
-                : i - stringStartIndex;
+            var stringLength = i > 0 && block[i - 1] == Constants.CR
+                ? i - blockIndex - 1
+                : i - blockIndex;
 
-            var trimmedRecord = Utils.GetTrimmedMemory(block, stringStartIndex, length);
+            var trimmedRecord = Utils.GetTrimmedMemory(block, blockIndex, stringLength);
             partsOriginal[partsIndex] = trimmedRecord;
 
             var upperRecord = Utils.GetUpperMemory(trimmedRecord, blockUpper, blockUpperIndex);
@@ -69,7 +70,7 @@ public sealed class SourceData
             blockUpperIndex += upperRecord.Length;
 
             partsIndex++;
-            stringStartIndex = i + 1;
+            blockIndex = i + 1;
         }
 
         Array.Sort(partsAsc, StableComparer());
@@ -91,7 +92,7 @@ public sealed class SourceData
 
         var mpIndex = 0;
         var mpNhIndex = 0;
-        var stringStartIndex = 0;
+        var blockIndex = 0;
         var blockUpperIndex = 0;
         var blockUpperNhIndex = 0;
 
@@ -99,12 +100,13 @@ public sealed class SourceData
         {
             // Also handle records that do not end with a newline
             if (block[i] != Constants.LF && i != block.Length - 1) continue;
+            if (block[i] != Constants.LF) i++;
 
-            var length = i > 0 && block[i - 1] == Constants.CR
-                ? i - stringStartIndex - 1
-                : i - stringStartIndex;
+            var stringLength = i > 0 && block[i - 1] == Constants.CR
+                ? i - blockIndex - 1
+                : i - blockIndex;
 
-            var trimmedRecord = Utils.GetTrimmedMemory(block, stringStartIndex, length);
+            var trimmedRecord = Utils.GetTrimmedMemory(block, blockIndex, stringLength);
             if (trimmedRecord.Length >= Constants.MIN_STRING_LENGTH)
             {
                 mpOriginal[mpIndex] = trimmedRecord;
@@ -115,7 +117,7 @@ public sealed class SourceData
 
                 if (Utils.ContainsDash(upperRecord))
                 {
-                    var noDashRecord = Utils.GetNoDashRecord(upperRecord, blockUpperNh, blockUpperNhIndex);
+                    var noDashRecord = Utils.GetNoDashMemory(upperRecord, blockUpperNh, blockUpperNhIndex);
                     mpAscNh[mpNhIndex] = new Part(noDashRecord, mpIndex);
                     blockUpperNhIndex += noDashRecord.Length;
                     mpNhIndex++;
@@ -123,14 +125,11 @@ public sealed class SourceData
 
                 mpIndex++;
             }
-            stringStartIndex = i + 1;
+            blockIndex = i + 1;
         }
 
 
         MasterPartsOriginal = mpOriginal;
-
-        var stopwatch = new Stopwatch();
-        stopwatch.Start();
 
         Array.Resize(ref mpAsc, mpIndex);
         Array.Resize(ref mpAscNh, mpNhIndex);
@@ -141,31 +140,10 @@ public sealed class SourceData
 
         //MasterPartsAsc = mpAsc.Take(mpIndex).OrderBy(x => x.Code.Length).ToArray();
         //MasterPartsAscNh = mpAscNh.Take(mpNhIndex).OrderBy(x => x.Code.Length).ToArray();
-
-        stopwatch.Stop();
-        Console.WriteLine($"Building MasterParts: {stopwatch.ElapsedMilliseconds:n0}");
     }
 
     // We need a stable sort and Array.Sort is not (OrderBy is stable).
     // So we need to compare Index if the lengths are equal.
     private static Comparison<Part> StableComparer()
-    {
-        return (x, y) => x.Code.Length == y.Code.Length ? x.Index.CompareTo(y.Index) : x.Code.Length.CompareTo(y.Code.Length);
-        //return (x, y) => x.Code.Length < y.Code.Length ? -1
-        //    : x.Code.Length > y.Code.Length ? 1
-        //    : x.Index < y.Index ? -1 : x.Index > y.Index ? 1 : 0;
-    }
-
-    private class StableSortComparer : IComparer<Part>
-    {
-        public int Compare(Part? x, Part? y)
-            => x!.Code.Length == y!.Code.Length ? x.Index.CompareTo(y.Index) : x.Code.Length.CompareTo(y.Code.Length);
-
-        //public int Compare(Part? x, Part? y)
-        //{
-        //    return x!.Code.Length < y!.Code.Length ? -1
-        //        : x.Code.Length > y.Code.Length ? 1
-        //        : x.Index < y.Index ? -1 : x.Index > y.Index ? 1 : 0;
-        //}
-    }
+        => (x, y) => x.Code.Length == y.Code.Length ? x.Index.CompareTo(y.Index) : x.Code.Length.CompareTo(y.Code.Length);
 }

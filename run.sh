@@ -41,11 +41,12 @@ run_impl() {
       echo "Building \"$desc\" implementation..."
       bash build.sh $tag >/dev/null
       echo "Build completed."
+      rm -f "result.txt" >/dev/null 2>&1
       echo ""
       if [ "$tag" = "" ]; then
-        hyperfine -i --runs 3 --warmup 2 --export-markdown "$script_dir/benchmarks/${langdir}_${subdir}.md" -n "\"$desc\"" "\"./run.sh\""
+        hyperfine -i --runs 5 --warmup 5 --export-markdown "$script_dir/benchmarks/${langdir}_${subdir}.md" -n "\"$desc\"" "\"./run.sh\""
       else
-        hyperfine -i --runs 3 --warmup 2 --export-markdown "$script_dir/benchmarks/${langdir}_${subdir}_${tag}.md" -n "\"$desc\"" "./run.sh $tag"
+        hyperfine -i --runs 5 --warmup 5 --export-markdown "$script_dir/benchmarks/${langdir}_${subdir}_${tag}.md" -n "\"$desc\"" "./run.sh $tag"
       fi
 
       compare_results "$script_dir/data/expected.txt" "results.txt"
