@@ -17,7 +17,6 @@ exit /b 0
 
 :usage
 echo.
-echo Invalid argument
 echo Usage: %~nx0 ^<implementation number^>
 echo.
 echo Implementations:
@@ -49,12 +48,15 @@ for /f "usebackq tokens=1,2,3,4,5,* delims=:" %%A in ("%impl_list_file%") do (
         echo Building "%%B" implementation...
         call build.bat %%E > nul
         echo Build completed.
+        if exist results.txt (
+            del results.txt
+        )
         echo.
         if errorlevel 1 exit /b 1
         if "%%E"=="" (
-            hyperfine -i --output=pipe --runs 3 --warmup 2 --export-markdown "%script_dir%\benchmarks\%%C_%%D.md" -n "%%B" "run.bat"
+            hyperfine -i --output=pipe --runs 10 --warmup 3 --export-markdown "%script_dir%\benchmarks\%%C_%%D.md" -n "%%B" "run.bat"
         ) else (
-            hyperfine -i --output=pipe --runs 3 --warmup 2 --export-markdown "%script_dir%\benchmarks\%%C_%%D_%%E.md" -n "%%B" "run.bat %%E"
+            hyperfine -i --output=pipe --runs 10 --warmup 3 --export-markdown "%script_dir%\benchmarks\%%C_%%D_%%E.md" -n "%%B" "run.bat %%E"
         )
         if errorlevel 1 exit /b 1
         call :compare_results "%script_dir%\data\expected.txt" "results.txt"

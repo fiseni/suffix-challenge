@@ -2,3 +2,5 @@
 1:C v1:c:v1::
 2:C# v1:csharp:v1::
 3:C# v1 AOT:csharp:v1:aot:
+4:C# v2:csharp:v2::
+5:C# v2 AOT:csharp:v2:aot:
