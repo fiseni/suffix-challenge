@@ -192,10 +192,13 @@ public sealed class Processor
             => throw new NotImplementedException();
 
         public bool Equals(ReadOnlyMemory<byte> x, ReadOnlyMemory<byte> y)
-            => x.Span.SequenceEqual(y.Span);
+            => x.Equals(y) || x.Span.SequenceEqual(y.Span);
 
         public bool Equals(ReadOnlySpan<byte> alternate, ReadOnlyMemory<byte> other)
-            => alternate.SequenceEqual(other.Span);
+        {
+            var otherSpan = other.Span;
+            return alternate == otherSpan || alternate.SequenceEqual(otherSpan);
+        }
 
         public int GetHashCode([DisallowNull] ReadOnlyMemory<byte> obj)
             => GetHashCode(obj.Span);
