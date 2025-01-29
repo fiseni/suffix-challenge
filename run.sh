@@ -10,7 +10,6 @@ fi
 
 usage() {
   echo ""
-  echo "Invalid argument!"
   echo "Usage: $0 <implementation number>"
   echo ""
   echo "Implementations:"

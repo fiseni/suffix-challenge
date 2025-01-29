@@ -12,20 +12,21 @@ public sealed class Processor
         var ctx = _ctx = new Context(data);
 
         CreateSuffixTables(ctx, data.MasterPartsAsc, CreateSuffixTableForMasterParts);
-        CreateSuffixTables(ctx, data.MasterPartsAscNh, CreateSuffixTableForMasterPartsNh);
+        CreateSuffixTables(ctx, data.MasterPartsNhAsc, CreateSuffixTableForMasterPartsNh);
         CreateSuffixTables(ctx, data.PartsAsc, CreateSuffixTableForParts);
 
-        for (var i = data.MasterPartsAsc.Length - 1; i >= 0; i--)
+        var masterPartsAsc = data.MasterPartsAsc;
+        var partsAsc = data.PartsAsc;
+        for (var i = masterPartsAsc.Length - 1; i >= 0; i--)
         {
-            var masterPart = data.MasterPartsAsc[i];
-            var partsIndicesBySuffix = ctx.PartSuffixTables[masterPart.Code.Length];
-            var partIndices = partsIndicesBySuffix?.GetValueOrDefault(masterPart.Code);
-            if (partIndices is not null)
+            var masterPart = masterPartsAsc[i];
+            var partIndexesBySuffix = ctx.PartSuffixTables[masterPart.Code.Length];
+            var partIndexes = partIndexesBySuffix?.GetValueOrDefault(masterPart.Code);
+            if (partIndexes is not null)
             {
-                var partsAsc = data.PartsAsc;
-                for (var j = partIndices.Count - 1; j >= 0; j--)
+                for (var j = partIndexes.Count - 1; j >= 0; j--)
                 {
-                    var partIndex = partIndices[j];
+                    var partIndex = partIndexes[j];
                     ctx.PartsLookup.TryAdd(partsAsc[partIndex].Code, masterPart.Index);
                 }
             }
@@ -39,7 +40,7 @@ public sealed class Processor
         var ctx = _ctx;
         var data = ctx.Data;
 
-        var partCodeUpper = Utils.GetUpperSpan(partCode, _buffer.AsSpan()[..partCode.Length]);
+        var partCodeUpper = Utils.GetUpperRecord(partCode, _buffer);
 
         var mpIndexBySuffix = ctx.MpSuffixTablesAlt[partCodeUpper.Length];
         if (mpIndexBySuffix.HasValue && mpIndexBySuffix.Value.TryGetValue(partCodeUpper, out var mpIndex))
@@ -63,16 +64,16 @@ public sealed class Processor
 
     private static void CreateSuffixTables(Context ctx, Part[] parts, Func<Context, int?[], Action<int>> func)
     {
-        var startIndexByLength = new int?[Constants.MAX_STRING_LENGTH];
+        var startIndexesByLength = new int?[Constants.MAX_STRING_LENGTH];
         for (var i = 0; i < parts.Length; i++)
         {
             var length = parts[i].Code.Length;
-            if (startIndexByLength[length] is null)
-                startIndexByLength[length] = i;
+            if (startIndexesByLength[length] is null)
+                startIndexesByLength[length] = i;
         }
-        var longestLength = BackwardFill(startIndexByLength);
+        var maxLength = BackwardFill(startIndexesByLength);
 
-        Parallel.For(Constants.MIN_STRING_LENGTH, longestLength + 1, func(ctx, startIndexByLength));
+        Parallel.For(Constants.MIN_STRING_LENGTH, maxLength + 1, func(ctx, startIndexesByLength));
     }
 
     private static Action<int> CreateSuffixTableForMasterParts(Context ctx, int?[] startIndexesByLength) => suffixLength =>
@@ -98,12 +99,12 @@ public sealed class Processor
         var startIndex = startIndexesByLength[suffixLength];
         if (startIndex is not null)
         {
-            var masterPartsAscNh = ctx.Data.MasterPartsAscNh;
-            var tempDict = new Dictionary<ReadOnlyMemory<byte>, int>(masterPartsAscNh.Length - startIndex.Value, Context.Comparer);
-            for (var i = startIndex.Value; i < masterPartsAscNh.Length; i++)
+            var masterPartsNhAsc = ctx.Data.MasterPartsNhAsc;
+            var tempDict = new Dictionary<ReadOnlyMemory<byte>, int>(masterPartsNhAsc.Length - startIndex.Value, Context.Comparer);
+            for (var i = startIndex.Value; i < masterPartsNhAsc.Length; i++)
             {
-                var mp = masterPartsAscNh[i];
-                var suffix = masterPartsAscNh[i].Code[^suffixLength..];
+                var mp = masterPartsNhAsc[i];
+                var suffix = masterPartsNhAsc[i].Code[^suffixLength..];
                 tempDict.TryAdd(suffix, mp.Index);
             }
             ctx.MpNhSuffixTables[suffixLength] = tempDict;
@@ -121,9 +122,9 @@ public sealed class Processor
             for (var i = startIndex.Value; i < partsAsc.Length; i++)
             {
                 var suffix = partsAsc[i].Code[^suffixLength..];
-                if (tempDict.TryGetValue(suffix, out var originalPartIndices))
+                if (tempDict.TryGetValue(suffix, out var partIndexes))
                 {
-                    originalPartIndices.Add(i);
+                    partIndexes.Add(i);
                 }
                 else
                 {

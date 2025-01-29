@@ -4,33 +4,36 @@ using System.Diagnostics.CodeAnalysis;
 namespace v2;
 
 /* Fati Iseni
- * Strings in .NET even though are objects, are treated in special way compared to other objects.
- * Some of the fields (e.g. _stringLength) are mapped directly onto the fields in an EE StringObject, so no overhead for them.
- * The minimal exclusive size starts with 24 bytes (as any other object). Empty strings and strings with single char are included in this size.
- * Then each additional char requires additional 2 bytes.
+ * To be cache friendly, it's crucial we store the content in a contiguous memory block.
+ * - File.ReadAllLines - it's convenient, but strings might/will be dispersed in the memory.
+ * - File.ReadAllText - maps the whole content to a single string, so all chars are contiguous. 
+ *   But, we know the content is ASCII, and the upper byte is a waste. It might lead to cache line evictions more often.
+ * - File.ReadAllBytes - maps the whole content to a single byte[], so all bytes are contiguous.
  * 
- * Memory<char> boxed will have minimum size of 32 bytes (an object ref included in the 24 bytes, and additional 2 int fields, total 32 bytes).
- * So, the size of the boxed Memory<char> will match the strings of 5 chars.
+ * We'll have a single byte[] memory block and use Memory<byte> to reference individual records.
+ * Memory<byte> once boxed will have minimum size of 32 bytes (an _object field included in the 24 bytes, and additional 2 int fields, total 32 bytes).
+ * The overhead of the string object is 24 bytes. They're treated specially in .NET, and some of the fields (e.g. _stringLength) are stored in the object header itself.
+ * So, we have additional 8 bytes overhead, but it's worth it considering the content is contiguous.
  * 
- * For the our use-case, the codes are mostly longer than 5 chars, so we have net win if we use Memory<char>.
- * Most importantly, the whole file content is loaded into a contiguous char[] memory block.
+ * If we define the Part as a struct, we'll avoid Memory<byte> boxing here. Then even the references will be stored contiguously.
+ * But, sorting the array then becomes expensive, and the overall performance was slower.
  */
 
 [DebuggerDisplay("{System.Text.Encoding.ASCII.GetString(Code.ToArray())}")]
 public sealed class Part(ReadOnlyMemory<byte> code, int index)
 {
     public ReadOnlyMemory<byte> Code = code;
-    public int Index = index; // Index to the original records. Also used for stable sorting.
+    public int Index = index;                           // Index to the original records. Also used for stable sorting.
 }
 
 public sealed class SourceData
 {
-    public ReadOnlyMemory<byte>[] PartsOriginal;
-    public ReadOnlyMemory<byte>[] MasterPartsOriginal;
+    public ReadOnlyMemory<byte>[] PartsOriginal;        // Original parts records, trimmed
+    public ReadOnlyMemory<byte>[] MasterPartsOriginal;  // Original master parts records, trimmed
 
-    public Part[] PartsAsc;
-    public Part[] MasterPartsAsc;
-    public Part[] MasterPartsAscNh;
+    public Part[] PartsAsc;                             // Sorted parts records, uppercased
+    public Part[] MasterPartsAsc;                       // Sorted master parts records, uppercased
+    public Part[] MasterPartsNhAsc;                     // Sorted master parts records, uppercased, without hyphens (Nh = no hyphens)
 
     public SourceData(string partsFile, string masterPartsFile)
     {
@@ -62,10 +65,10 @@ public sealed class SourceData
                 ? i - blockIndex - 1
                 : i - blockIndex;
 
-            var trimmedRecord = Utils.GetTrimmedMemory(block, blockIndex, stringLength);
+            var trimmedRecord = Utils.GetTrimmedRecord(block, blockIndex, stringLength);
             partsOriginal[partsIndex] = trimmedRecord;
 
-            var upperRecord = Utils.GetUpperMemory(trimmedRecord, blockUpper, blockUpperIndex);
+            var upperRecord = Utils.GetUpperRecord(trimmedRecord, blockUpper, blockUpperIndex);
             partsAsc[partsIndex] = new Part(upperRecord, partsIndex);
             blockUpperIndex += upperRecord.Length;
 
@@ -78,7 +81,7 @@ public sealed class SourceData
         PartsOriginal = partsOriginal;
     }
 
-    [MemberNotNull(nameof(MasterPartsOriginal), nameof(MasterPartsAsc), nameof(MasterPartsAscNh))]
+    [MemberNotNull(nameof(MasterPartsOriginal), nameof(MasterPartsAsc), nameof(MasterPartsNhAsc))]
     public void LoadMasterParts(string masterPartsFile)
     {
         var block = File.ReadAllBytes(masterPartsFile);
@@ -88,16 +91,19 @@ public sealed class SourceData
 
         var mpOriginal = new ReadOnlyMemory<byte>[lineCount];
         var mpAsc = new Part[lineCount];
-        var mpAscNh = new Part[lineCount];
+        var mpNhAsc = new Part[lineCount];
 
         var mpIndex = 0;
         var mpNhIndex = 0;
         var blockIndex = 0;
         var blockUpperIndex = 0;
         var blockUpperNhIndex = 0;
+        var containsHyphen = false;
 
         for (int i = 0; i < block.Length; i++)
         {
+            if (block[i] == Constants.HYPHEN) containsHyphen = true;
+
             // Also handle records that do not end with a newline
             if (block[i] != Constants.LF && i != block.Length - 1) continue;
             if (block[i] != Constants.LF) i++;
@@ -106,21 +112,22 @@ public sealed class SourceData
                 ? i - blockIndex - 1
                 : i - blockIndex;
 
-            var trimmedRecord = Utils.GetTrimmedMemory(block, blockIndex, stringLength);
+            var trimmedRecord = Utils.GetTrimmedRecord(block, blockIndex, stringLength);
             if (trimmedRecord.Length >= Constants.MIN_STRING_LENGTH)
             {
                 mpOriginal[mpIndex] = trimmedRecord;
 
-                var upperRecord = Utils.GetUpperMemory(trimmedRecord, blockUpper, blockUpperIndex);
+                var upperRecord = Utils.GetUpperRecord(trimmedRecord, blockUpper, blockUpperIndex);
                 mpAsc[mpIndex] = new Part(upperRecord, mpIndex);
                 blockUpperIndex += upperRecord.Length;
 
-                if (Utils.ContainsDash(upperRecord))
+                if (containsHyphen)
                 {
-                    var noDashRecord = Utils.GetNoDashMemory(upperRecord, blockUpperNh, blockUpperNhIndex);
-                    mpAscNh[mpNhIndex] = new Part(noDashRecord, mpIndex);
-                    blockUpperNhIndex += noDashRecord.Length;
+                    var noHyphensRecord = Utils.GetNoHyphensRecord(upperRecord, blockUpperNh, blockUpperNhIndex);
+                    mpNhAsc[mpNhIndex] = new Part(noHyphensRecord, mpIndex);
+                    blockUpperNhIndex += noHyphensRecord.Length;
                     mpNhIndex++;
+                    containsHyphen = false;
                 }
 
                 mpIndex++;
@@ -128,18 +135,17 @@ public sealed class SourceData
             blockIndex = i + 1;
         }
 
-
         MasterPartsOriginal = mpOriginal;
 
         Array.Resize(ref mpAsc, mpIndex);
-        Array.Resize(ref mpAscNh, mpNhIndex);
+        Array.Resize(ref mpNhAsc, mpNhIndex);
         Array.Sort(mpAsc, StableComparer());
-        Array.Sort(mpAscNh, StableComparer());
+        Array.Sort(mpNhAsc, StableComparer());
         MasterPartsAsc = mpAsc;
-        MasterPartsAscNh = mpAscNh;
+        MasterPartsNhAsc = mpNhAsc;
 
         //MasterPartsAsc = mpAsc.Take(mpIndex).OrderBy(x => x.Code.Length).ToArray();
-        //MasterPartsAscNh = mpAscNh.Take(mpNhIndex).OrderBy(x => x.Code.Length).ToArray();
+        //MasterPartsNhAsc = mpNhAsc.Take(mpNhIndex).OrderBy(x => x.Code.Length).ToArray();
     }
 
     // We need a stable sort and Array.Sort is not (OrderBy is stable).

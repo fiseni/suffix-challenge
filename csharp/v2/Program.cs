@@ -1,5 +1,12 @@
 ﻿using v2;
 
+#if DEBUG
+var debugArgs = new string[] { "../../../../../data/parts.txt", "../../../../../data/master-parts.txt", "results.txt" };
+Run(debugArgs);
+return;
+#endif
+
+GC.TryStartNoGCRegion(1000 * 1024 * 1024);
 Run(args);
 
 static void Run(string[] args)
@@ -17,8 +24,9 @@ static void Run(string[] args)
 
     for (int i = 0; i < partsOriginal.Length; i++)
     {
-        var match = processor.FindMatch(partsOriginal[i]);
-        resultBuilder.AddMatch(partsOriginal[i], match);
+        var partOriginal = partsOriginal[i];
+        var match = processor.FindMatch(partOriginal);
+        resultBuilder.AddMatch(partOriginal, match);
     }
 
     resultBuilder.PrintMatchCount();

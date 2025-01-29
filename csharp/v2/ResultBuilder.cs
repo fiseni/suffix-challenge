@@ -9,7 +9,7 @@ sealed class ResultBuilder
 
     public ResultBuilder(string resultFile, int lineCount)
     {
-        // Each record is max 49 chars + CR + LC + separator
+        // Two record per line. Each record is max 49 chars + CR + LC + separator
         _block = new byte[(Constants.MAX_STRING_LENGTH * 2 + 3) * lineCount];
         _resultFile = resultFile;
     }

@@ -17,7 +17,6 @@ exit /b 0
 
 :usage
 echo.
-echo Invalid argument
 echo Usage: %~nx0 ^<implementation number^>
 echo.
 echo Implementations:
