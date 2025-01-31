@@ -28,4 +28,4 @@ for (int i = 0; i < parts.Length; i++)
 }
 
 File.WriteAllLines(args[2], results);
-Console.Write(matchCount);
+Console.WriteLine(matchCount);

@@ -1,4 +1,8 @@
 @echo off
+setlocal EnableDelayedExpansion
+
+call ..\..\argparser.bat %*
+if errorlevel 1 exit /b 1
 
 if exist publish (
     rmdir /s /q publish
@@ -12,8 +16,10 @@ if exist obj (
     rmdir /s /q obj
 )
 
-if "%~1"=="aot" (
+if NOT [%OPT_A%]==[] (
     dotnet publish v2_aot.csproj -o publish --nologo
 ) else (
     dotnet publish v2.csproj -o publish --nologo
 )
+
+endlocal

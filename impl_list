@@ -1,6 +1,10 @@
+# Lines starting with # are comments. Empty lines are ignored, but do not add spaces to them.
+# Format: ID:Description:Language Directory:Implementation Directory:Additional Flags:
+# 0 is a special case.
+
 0:All
 1:C v1:c:v1::
 2:C# v1:csharp:v1::
-3:C# v1 AOT:csharp:v1:aot:
+3:C# v1 AOT:csharp:v1:-a:
 4:C# v2:csharp:v2::
-5:C# v2 AOT:csharp:v2:aot:
+5:C# v2 AOT:csharp:v2:-a:
