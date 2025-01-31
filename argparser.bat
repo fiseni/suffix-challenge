@@ -6,7 +6,7 @@ REM Date: 2025-01-31
 REM Script to parse both positional arguments and options combined.
 REM Options can be placed anywhere while calling the script.
 REM You can include the script in your batch file and call it with %*. Example:
-REM call argparser.bat %*
+REM call argparser.bat %* 
 
 set "arg_count=0"
 
@@ -24,6 +24,11 @@ if "%~1"=="-s" (
 )
 if "%~1"=="-t" (
     set "opt_t=true"
+    shift
+    goto :parse_args
+)
+if "%~1"=="-b" (
+    set "opt_b=true"
     shift
     goto :parse_args
 )
@@ -53,6 +58,7 @@ set "EXPORT_VARS=set "ARG_COUNT=!arg_count!""
 set "EXPORT_VARS=!EXPORT_VARS! & set "OPT_H=!opt_h!""
 set "EXPORT_VARS=!EXPORT_VARS! & set "OPT_S=!opt_s!""
 set "EXPORT_VARS=!EXPORT_VARS! & set "OPT_T=!opt_t!""
+set "EXPORT_VARS=!EXPORT_VARS! & set "OPT_B=!opt_b!""
 set "EXPORT_VARS=!EXPORT_VARS! & set "OPT_A=!opt_a!""
 
 for /l %%i in (1,1,!arg_count!) do (

@@ -5,17 +5,18 @@
 # Script to parse both positional arguments and options combined.
 # Options can be placed anywhere while calling the script.
 # You can include the script in your bash file as follows.
-# source argparser.sh
+# source argparser.sh 
 
 script_args=()
 while [ $OPTIND -le "$#" ]
 do
-  if getopts :hsta option
+  if getopts :hstba option
   then
     case $option in
       h) OPT_H="true";;
       s) OPT_S="true";;
       t) OPT_T="true";;
+      b) OPT_B="true";;
       a) OPT_A="true";;
       \?) echo "Error: Invalid option"
           exit 1;;

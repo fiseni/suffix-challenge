@@ -35,6 +35,10 @@ REM If -s or -t options are set, do not run benchmarks.
 if NOT [%OPT_S%]==[] set is_simple_run=true
 if NOT [%OPT_T%]==[] set is_simple_run=true
 
+REM If -b is set, run without building.
+REM Usually used in combination with -s for repetitive runs.
+if NOT [%OPT_B%]==[] set nobuild=true
+
 REM Main execution.
 if NOT [%OPT_H%]==[] goto :show_help
 if "%ARG1%"=="" goto :show_help
@@ -87,11 +91,13 @@ REM ####################################################################
             )
 
             REM Always use absolute paths, just in case.
-            echo Building "%%B" implementation...
-            call !impl_dir!\build.bat %%E > nul
-            if errorlevel 1 exit /b 1
-            echo Build completed.
-            echo.
+            if NOT "%nobuild%"=="true" (
+                echo Building "%%B" implementation...
+                call !impl_dir!\build.bat %%E > nul
+                if errorlevel 1 exit /b 1
+                echo Build completed.
+                echo.
+            )
 
             REM The output results file is always in the impl directory.
             set results_file=!impl_dir!\%results_file_name%

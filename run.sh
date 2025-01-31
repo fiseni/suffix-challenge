@@ -1,5 +1,5 @@
 #!/bin/bash
-
+ 
 # Author: Fati Iseni
 # Date: 2025-01-31
 
@@ -34,6 +34,12 @@ if [ -n "$OPT_S" ] || [ -n "$OPT_T" ]; then
   is_simple_run="true"
 fi
 
+# If -s or -t options are set, do not run benchmarks.
+nobuild="false"
+if [ -n "$OPT_B" ]; then
+  nobuild="true"
+fi
+
 ####################################################################
 show_help() {
   echo ""
@@ -41,12 +47,8 @@ show_help() {
   echo ""
   echo "Implementations:"
   while IFS=":" read -r num desc _; do
-    num=$(echo "$num" | xargs)
-    if [[ -z "$num" || $num == \#* ]]; then
-      continue
-    fi
     echo "$num: $desc"
-  done < "$impl_list_file"
+  done < <(grep -v "^#\|^[[:space:]]*$" $impl_list_file)
   echo ""
   exit 1
 }
@@ -55,11 +57,11 @@ show_help() {
 run_all() {
   while IFS=":" read -r num _; do
     num=$(echo "$num" | xargs)
-    if [[ -z "$num" || $num == \#* || "$num" == "0" ]]; then
+    if [ "$num" == "0" ]; then
       continue
     fi
     run_impl $num
-  done < "$impl_list_file"
+  done < <(grep -v "^#\|^[[:space:]]*$" $impl_list_file)
 }
 
 ####################################################################
@@ -81,10 +83,12 @@ run_impl() {
       mkdir -p "$script_dir/benchmarks"
 
       # Always use absolute paths, just in case.
-      echo "Building \"$desc\" implementation..."
-      bash $impl_dir/build.sh $tag >/dev/null
-      echo "Build completed."
-      echo ""
+      if [ "$nobuild" == "false" ]; then
+        echo "Building \"$desc\" implementation..."
+        bash $impl_dir/build.sh $tag >/dev/null
+        echo "Build completed."
+        echo ""
+      fi
       
       # The output results file is always in the impl directory.
       results_file="$impl_dir/$results_file_name"
