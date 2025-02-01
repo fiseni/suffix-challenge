@@ -89,16 +89,16 @@ run_impl() {
         echo "Build completed."
         echo ""
       fi
-      
+
       # The output results file is always in the impl directory.
       results_file="$impl_dir/$results_file_name"
       rm -f $results_file >/dev/null 2>&1
 
-      # If -s or -t options are set, we will just execute the script.
+      # If -s or -t options are set, we will just execute the app, and not run the benchmarks.
+      cmd="$impl_dir/publish/app $parts_file $master_parts_file $results_file"
       if [ "$is_simple_run" == "true" ]; then
-        bash $impl_dir/run.sh $parts_file $master_parts_file $results_file $tag
+        $cmd
       else
-        cmd="bash $impl_dir/run.sh $parts_file $master_parts_file $results_file"
         hyperfine -i --runs 10 --warmup 3 --export-markdown "$script_dir/benchmarks/${num}.md" -n "\"$desc\"" "$cmd"
       fi
       

@@ -64,8 +64,8 @@ REM ####################################################################
     for /f "usebackq tokens=1,* delims=:" %%A in (%impl_list_file%) do (
         set impl_num=%%A
         set call_impl=true
-        if "!impl_num!"=="0" set call_impl=false;
-        if "!impl_num:~0,1!"=="#" set call_impl=false;
+        if "!impl_num!"=="0" set call_impl=false
+        if "!impl_num:~0,1!"=="#" set call_impl=false
         if "!call_impl!"=="true" (
             call :run_impl !impl_num!
         )
@@ -106,12 +106,12 @@ REM ####################################################################
             )
             if errorlevel 1 exit /b 1
 
-            REM If -s or -t options are set, we will just execute the script.
+            REM If -s or -t options are set, we will just execute the app, and not run the benchmarks.
+            set command="!impl_dir!\publish\app" "%parts_file%" "%master_parts_file%" "!results_file!"
             if "%is_simple_run%"=="true" (
-                !impl_dir!\run.bat %parts_file% %master_parts_file% !results_file! %%E
+                !command!
             ) else (
-                set command="!impl_dir!\run.bat %parts_file% %master_parts_file% !results_file!"
-                hyperfine -i --output=pipe --runs 10 --warmup 3 --export-markdown "%script_dir%\benchmarks\%%A.md" -n "%%B" !command!
+                hyperfine -i --output=pipe --runs 10 --warmup 3 --export-markdown "%script_dir%\benchmarks\%%A.md" -n "%%B" "!command!"
             )
             if errorlevel 1 exit /b 1
 

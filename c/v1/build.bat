@@ -9,7 +9,7 @@ if exist publish (
 )
 mkdir publish
 
-cl %FLAGS% %FILES% /Fe:publish\v1.exe
+cl %FLAGS% %FILES% /Fe:publish\app.exe
 del *.obj
 
 endlocal

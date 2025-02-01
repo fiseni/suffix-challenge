@@ -18,10 +18,10 @@ if exist obj (
 
 if NOT [%OPT_A%]==[] (
     dotnet publish v2_aot.csproj -o publish --nologo
-    move publish\v2_aot.exe publish\v2.exe
-    move publish\v2_aot.pdb publish\v2.pdb
+    move publish\v2_aot.exe publish\app.exe
 ) else (
     dotnet publish v2.csproj -o publish --nologo
+    move publish\v2.exe publish\app.exe
 )
 
 endlocal
