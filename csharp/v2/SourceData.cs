@@ -1,5 +1,4 @@
 ﻿using System.Diagnostics;
-using System.Diagnostics.CodeAnalysis;
 
 namespace v2;
 
@@ -23,25 +22,26 @@ namespace v2;
 public sealed class Part(ReadOnlyMemory<byte> code, int index)
 {
     public ReadOnlyMemory<byte> Code = code;
-    public int Index = index;                           // Index to the original records. Also used for stable sorting.
+    public int Index = index;                                   // Index to the original records. Also used for stable sorting.
 }
 
 public sealed class SourceData
 {
-    public ReadOnlyMemory<byte>[] PartsOriginal;        // Original parts records, trimmed
-    public ReadOnlyMemory<byte>[] MasterPartsOriginal;  // Original master parts records, trimmed
+    public ReadOnlyMemory<byte>[] PartsOriginal = null!;        // Original parts records, trimmed
+    public ReadOnlyMemory<byte>[] MasterPartsOriginal = null!;  // Original master parts records, trimmed
 
-    public Part[] PartsAsc;                             // Sorted parts records, uppercased
-    public Part[] MasterPartsAsc;                       // Sorted master parts records, uppercased
-    public Part[] MasterPartsNhAsc;                     // Sorted master parts records, uppercased, without hyphens (Nh = no hyphens)
+    public Part[] PartsAsc = null!;                             // Sorted parts records, uppercased
+    public Part[] MasterPartsAsc = null!;                       // Sorted master parts records, uppercased
+    public Part[] MasterPartsNhAsc = null!;                     // Sorted master parts records, uppercased, without hyphens (Nh = no hyphens)
 
     public SourceData(string partsFile, string masterPartsFile)
     {
-        LoadParts(partsFile);
-        LoadMasterParts(masterPartsFile);
+        Parallel.Invoke(
+            () => LoadParts(partsFile),
+            () => LoadMasterParts(masterPartsFile)
+        );
     }
 
-    [MemberNotNull(nameof(PartsOriginal), nameof(PartsAsc))]
     public void LoadParts(string partsFile)
     {
         var block = File.ReadAllBytes(partsFile);
@@ -81,7 +81,6 @@ public sealed class SourceData
         PartsOriginal = partsOriginal;
     }
 
-    [MemberNotNull(nameof(MasterPartsOriginal), nameof(MasterPartsAsc), nameof(MasterPartsNhAsc))]
     public void LoadMasterParts(string masterPartsFile)
     {
         var block = File.ReadAllBytes(masterPartsFile);
@@ -139,13 +138,14 @@ public sealed class SourceData
 
         Array.Resize(ref mpAsc, mpIndex);
         Array.Resize(ref mpNhAsc, mpNhIndex);
-        Array.Sort(mpAsc, StableComparer());
-        Array.Sort(mpNhAsc, StableComparer());
+
+        Parallel.Invoke(
+            () => Array.Sort(mpAsc, StableComparer()),
+            () => Array.Sort(mpNhAsc, StableComparer())
+        );
+
         MasterPartsAsc = mpAsc;
         MasterPartsNhAsc = mpNhAsc;
-
-        //MasterPartsAsc = mpAsc.Take(mpIndex).OrderBy(x => x.Code.Length).ToArray();
-        //MasterPartsNhAsc = mpNhAsc.Take(mpNhIndex).OrderBy(x => x.Code.Length).ToArray();
     }
 
     // We need a stable sort and Array.Sort is not (OrderBy is stable).
