@@ -110,7 +110,8 @@ REM ####################################################################
             if "%is_simple_run%"=="true" (
                 !impl_dir!\run.bat %parts_file% %master_parts_file% !results_file! %%E
             ) else (
-                hyperfine -i --output=pipe --runs 10 --warmup 3 --export-markdown "%script_dir%\benchmarks\%%A.md" -n "%%B" "!impl_dir!\run.bat %parts_file% %master_parts_file% !results_file! %%E"
+                set command="!impl_dir!\run.bat %parts_file% %master_parts_file% !results_file!"
+                hyperfine -i --output=pipe --runs 10 --warmup 3 --export-markdown "%script_dir%\benchmarks\%%A.md" -n "%%B" !command!
             )
             if errorlevel 1 exit /b 1
 

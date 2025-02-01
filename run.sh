@@ -98,7 +98,8 @@ run_impl() {
       if [ "$is_simple_run" == "true" ]; then
         bash $impl_dir/run.sh $parts_file $master_parts_file $results_file $tag
       else
-        hyperfine -i --runs 10 --warmup 3 --export-markdown "$script_dir/benchmarks/${num}.md" -n "\"$desc\"" "bash $impl_dir/run.sh $parts_file $master_parts_file $results_file $tag"
+        cmd="bash $impl_dir/run.sh $parts_file $master_parts_file $results_file"
+        hyperfine -i --runs 10 --warmup 3 --export-markdown "$script_dir/benchmarks/${num}.md" -n "\"$desc\"" "$cmd"
       fi
       
       # Check for the correctness of results.
