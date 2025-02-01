@@ -1,7 +1,7 @@
 #ifndef SOURCE_DATA_H
 #define SOURCE_DATA_H
 
-#include "common.h"
+#include <stdlib.h>
 
 // Based on the requirements the part codes are less than 50 characters (ASCII).
 // Defining the max as 50 makes it easier to work with arrays and buffer sizes (null terminator).

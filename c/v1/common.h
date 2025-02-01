@@ -6,12 +6,15 @@
 * They're tailored for our scenario and they're safe to use only within this context.
 */
 
-#include <stdio.h>
 #include <stdlib.h>
+#include <stdio.h>
 #include <stdbool.h>
 #include <assert.h>
-#include <string.h>
 #include <ctype.h>
+
+#define CHAR_SPACE ' '
+#define CHAR_HYPHEN '-'
+#define CHAR_SEMICOLON ';'
 
 // Macro to check allocation
 #define CHECK_ALLOC(ptr)                                   \
@@ -22,19 +25,7 @@
         }                                                  \
     } while (0)
 
-
 static const size_t MAX_SIZE_T_VALUE = ((size_t)-1);
-
-static inline bool str_contains_dash(const char *str, size_t strLength) {
-    assert(str);
-
-    for (size_t i = 0; i < strLength; i++) {
-        if (str[i] == '-') {
-            return true;
-        }
-    }
-    return false;
-}
 
 static inline const char *str_to_upper(const char *src, size_t srcLength, char *buffer) {
     assert(src);
@@ -42,13 +33,15 @@ static inline const char *str_to_upper(const char *src, size_t srcLength, char *
 
     // We know the buffer has enough space.
     for (size_t i = 0; i < srcLength; i++) {
-        buffer[i] = toupper(src[i]);
+        buffer[i] = (unsigned int)(src[i] - 97) <= 25 // 25 = 122 - 97
+            ? src[i] & 0x5F
+            : src[i];
     }
     buffer[srcLength] = '\0';
     return buffer;
 }
 
-static inline const char *str_remove_char(const char *src, size_t srcLength, char *buffer, char find, size_t * outLength) {
+static inline const char *str_remove_hyphens(const char *src, size_t srcLength, char *buffer, size_t *outLength) {
     assert(src);
     assert(buffer);
     assert(outLength);
@@ -56,9 +49,9 @@ static inline const char *str_remove_char(const char *src, size_t srcLength, cha
     // We know the buffer has enough space.
     size_t j = 0;
     for (size_t i = 0; i < srcLength; i++) {
-        if (src[i] != find) {
+        if (src[i] != CHAR_HYPHEN) {
             // We know the chars are ASCII (no need to cast to unaligned char)
-            buffer[j++] = toupper(src[i]);
+            buffer[j++] = src[i];
         }
     }
     buffer[j] = '\0';
@@ -66,12 +59,12 @@ static inline const char *str_remove_char(const char *src, size_t srcLength, cha
     return buffer;
 }
 
-static inline const char *str_trim_in_place(char *src, size_t srcLength, size_t * outLength) {
+static inline const char *str_trim_in_place(char *src, size_t srcLength, size_t *outLength) {
     assert(src);
     assert(outLength);
 
     size_t start = 0;
-    while (start < srcLength && isspace(src[start])) {
+    while (start < srcLength && src[start] == CHAR_SPACE) {
         start++;
     }
 
@@ -82,7 +75,7 @@ static inline const char *str_trim_in_place(char *src, size_t srcLength, size_t 
     }
 
     size_t end = srcLength - 1;
-    while (end > start && isspace(src[end])) {
+    while (end > start && src[end] == CHAR_SPACE) {
         end--;
     }
 

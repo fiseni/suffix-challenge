@@ -93,8 +93,13 @@ static void build_masterParts(const char *masterPartsPath, SourceData *data) {
     size_t mpNohIndex = 0;
     size_t stringStartIndex = 0;
     size_t blockIndexExtra = contentSize;
+    bool containsHyphens = false;
 
     for (size_t i = 0; i < contentSize; i++) {
+        if (block[i] == CHAR_HYPHEN) {
+            containsHyphens = true;
+        }
+
         if (block[i] != '\n') {
             continue;
         }
@@ -118,9 +123,9 @@ static void build_masterParts(const char *masterPartsPath, SourceData *data) {
             masterPartsAsc[mpIndex].index = mpIndex;
             blockIndexExtra += length + 1; // +1 for null terminator
 
-            if (str_contains_dash(codeUpper, length)) {
+            if (containsHyphens) {
                 size_t codeNhLength;
-                masterPartsAscNh[mpNohIndex].code = str_remove_char(codeUpper, length, &block[blockIndexExtra], '-', &codeNhLength);
+                masterPartsAscNh[mpNohIndex].code = str_remove_hyphens(codeUpper, length, &block[blockIndexExtra], &codeNhLength);
                 masterPartsAscNh[mpNohIndex].codeLength = codeNhLength;
                 masterPartsAscNh[mpNohIndex].index = mpIndex;
                 mpNohIndex++;
@@ -130,6 +135,7 @@ static void build_masterParts(const char *masterPartsPath, SourceData *data) {
             mpIndex++;
         }
         stringStartIndex = i + 1;
+        containsHyphens = false;
     }
 
     qsort(masterPartsAsc, mpIndex, sizeof(*masterPartsAsc), compare_by_code_length_asc);
