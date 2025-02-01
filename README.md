@@ -64,8 +64,8 @@ You may choose to run all benchmarks or only a specific implementation. The scri
 Everyone is welcome to participate in the challenge. 
 - You may use a language of your choice.
 - Create a directory with the language name (if it doesn't exist) and a sub-directory with your name (or anything).
-- Create a `build.sh`/`build.bat` script that builds the application.
-- Create a `run.sh`/`run.bat` script that runs the application.
+- Create a `build.sh`/`build.bat` scripts that build the application.
+- The builds should output an executable under `YOUR_DIR/publish/`. The name of the executable should be `app`/`app.exe`. We're trying to avoid intermediary run scripts since they affect the benchmarks.
 
 ## Benchmark Results
 
