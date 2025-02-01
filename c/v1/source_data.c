@@ -23,7 +23,7 @@ void source_data_clean(const SourceData *data) {
 
     free((void *)data->masterPartsOriginal);
     free((void *)data->masterPartsAsc);
-    free((void *)data->masterPartsAscNh);
+    free((void *)data->masterPartsNhAsc);
     free((void *)data->partsOriginal);
     free((void *)data->partsAsc);
     free((void *)data);
@@ -34,44 +34,43 @@ static void build_parts(const char *partsPath, SourceData *data) {
     size_t contentSize;
     char *block = read_file(partsPath, 2, &contentSize, &lineCount);
 
-    Part *parts = malloc(lineCount * sizeof(*parts));
-    CHECK_ALLOC(parts);
+    Part *partsOriginal = malloc(lineCount * sizeof(*partsOriginal));
+    CHECK_ALLOC(partsOriginal);
     Part *partsAsc = malloc(lineCount * sizeof(*partsAsc));
     CHECK_ALLOC(partsAsc);
 
     size_t partsIndex = 0;
-    size_t stringStartIndex = 0;
-    size_t blockIndexUpper = contentSize;
+    size_t blockIndex = 0;
+    size_t blockUpperIndex = contentSize;
 
     for (size_t i = 0; i < contentSize; i++) {
-        if (block[i] != '\n') {
-            continue;
-        }
+        if (block[i] != '\n') continue;
+
         block[i] = '\0';
-        size_t length = i - stringStartIndex;
+        size_t length = i - blockIndex;
         if (i > 0 && block[i - 1] == '\r') {
             block[i - 1] = '\0';
             length--;
         }
         assert(partsIndex < lineCount);
 
-        const char *codeOriginal = str_trim_in_place(&block[stringStartIndex], length, &length);
-        parts[partsIndex].code = codeOriginal;
-        parts[partsIndex].codeLength = length;
-        parts[partsIndex].index = partsIndex;
+        const char *trimmedRecord = str_trim_in_place(&block[blockIndex], length, &length);
+        partsOriginal[partsIndex].code = trimmedRecord;
+        partsOriginal[partsIndex].codeLength = length;
+        partsOriginal[partsIndex].index = partsIndex;
 
-        partsAsc[partsIndex].code = str_to_upper(codeOriginal, length, &block[blockIndexUpper]);
+        partsAsc[partsIndex].code = str_to_upper(trimmedRecord, length, &block[blockUpperIndex]);
         partsAsc[partsIndex].codeLength = length;
         partsAsc[partsIndex].index = partsIndex;
+        blockUpperIndex += length + 1; // +1 for null terminator
 
-        blockIndexUpper += length + 1; // +1 for null terminator
-        stringStartIndex = i + 1;
         partsIndex++;
+        blockIndex = i + 1;
     }
 
     qsort(partsAsc, partsIndex, sizeof(*partsAsc), compare_by_code_length_asc);
 
-    data->partsOriginal = parts;
+    data->partsOriginal = partsOriginal;
     data->partsOriginalCount = partsIndex;
     data->partsAsc = partsAsc;
     data->partsAscCount = partsIndex;
@@ -82,71 +81,67 @@ static void build_masterParts(const char *masterPartsPath, SourceData *data) {
     size_t contentSize;
     char *block = read_file(masterPartsPath, 2, &contentSize, &lineCount);
 
-    Part *masterParts = malloc(lineCount * sizeof(*masterParts));
-    CHECK_ALLOC(masterParts);
-    Part *masterPartsAsc = malloc(lineCount * sizeof(*masterPartsAsc));
-    CHECK_ALLOC(masterPartsAsc);
-    Part *masterPartsAscNh = malloc(lineCount * sizeof(*masterPartsAscNh));
-    CHECK_ALLOC(masterPartsAscNh);
+    Part *mpOriginal = malloc(lineCount * sizeof(*mpOriginal));
+    CHECK_ALLOC(mpOriginal);
+    Part *mpAsc = malloc(lineCount * sizeof(*mpAsc));
+    CHECK_ALLOC(mpAsc);
+    Part *mpNhAsc = malloc(lineCount * sizeof(*mpNhAsc));
+    CHECK_ALLOC(mpNhAsc);
 
     size_t mpIndex = 0;
-    size_t mpNohIndex = 0;
-    size_t stringStartIndex = 0;
+    size_t mpNhIndex = 0;
+    size_t blockIndex = 0;
     size_t blockIndexExtra = contentSize;
     bool containsHyphens = false;
 
     for (size_t i = 0; i < contentSize; i++) {
-        if (block[i] == CHAR_HYPHEN) {
-            containsHyphens = true;
-        }
+        if (block[i] == CHAR_HYPHEN) containsHyphens = true;
+        if (block[i] != '\n') continue;
 
-        if (block[i] != '\n') {
-            continue;
-        }
         block[i] = '\0';
-        size_t length = i - stringStartIndex;
+        size_t length = i - blockIndex;
         if (i > 0 && block[i - 1] == '\r') {
             block[i - 1] = '\0';
             length--;
         }
         assert(mpIndex < lineCount);
 
-        const char *codeOriginal = str_trim_in_place(&block[stringStartIndex], length, &length);
+        const char *trimmedRecord = str_trim_in_place(&block[blockIndex], length, &length);
         if (length >= MIN_STRING_LENGTH) {
-            masterParts[mpIndex].code = codeOriginal;
-            masterParts[mpIndex].codeLength = length;
-            masterParts[mpIndex].index = mpIndex;
+            mpOriginal[mpIndex].code = trimmedRecord;
+            mpOriginal[mpIndex].codeLength = length;
+            mpOriginal[mpIndex].index = mpIndex;
 
-            const char *codeUpper = str_to_upper(codeOriginal, length, &block[blockIndexExtra]);
-            masterPartsAsc[mpIndex].code = codeUpper;
-            masterPartsAsc[mpIndex].codeLength = length;
-            masterPartsAsc[mpIndex].index = mpIndex;
+            const char *upperRecord = str_to_upper(trimmedRecord, length, &block[blockIndexExtra]);
+            mpAsc[mpIndex].code = upperRecord;
+            mpAsc[mpIndex].codeLength = length;
+            mpAsc[mpIndex].index = mpIndex;
             blockIndexExtra += length + 1; // +1 for null terminator
 
             if (containsHyphens) {
                 size_t codeNhLength;
-                masterPartsAscNh[mpNohIndex].code = str_remove_hyphens(codeUpper, length, &block[blockIndexExtra], &codeNhLength);
-                masterPartsAscNh[mpNohIndex].codeLength = codeNhLength;
-                masterPartsAscNh[mpNohIndex].index = mpIndex;
-                mpNohIndex++;
+                mpNhAsc[mpNhIndex].code = str_remove_hyphens(upperRecord, length, &block[blockIndexExtra], &codeNhLength);
+                mpNhAsc[mpNhIndex].codeLength = codeNhLength;
+                mpNhAsc[mpNhIndex].index = mpIndex;
+                mpNhIndex++;
                 blockIndexExtra += codeNhLength + 1; // +1 for null terminator
             }
 
             mpIndex++;
         }
-        stringStartIndex = i + 1;
+        blockIndex = i + 1;
         containsHyphens = false;
     }
 
-    qsort(masterPartsAsc, mpIndex, sizeof(*masterPartsAsc), compare_by_code_length_asc);
-    qsort(masterPartsAscNh, mpNohIndex, sizeof(*masterPartsAscNh), compare_by_code_length_asc);
+    qsort(mpAsc, mpIndex, sizeof(*mpAsc), compare_by_code_length_asc);
+    qsort(mpNhAsc, mpNhIndex, sizeof(*mpNhAsc), compare_by_code_length_asc);
 
-    data->masterPartsOriginal = masterParts;
+    data->masterPartsOriginal = mpOriginal;
     data->masterPartsOriginalCount = mpIndex;
-    data->masterPartsAsc = masterPartsAsc;
+    data->masterPartsAsc = mpAsc;
     data->masterPartsAscCount = mpIndex;
-    data->masterPartsAscNh = masterPartsAscNh;
-    data->masterPartsAscNhCount = mpNohIndex;
+    data->masterPartsNhAsc = mpNhAsc;
+    data->masterPartsNhAscCount = mpNhIndex;
 }
 
 static long get_file_size_bytes(const char *filePath) {
@@ -211,7 +206,7 @@ static int compare_by_code_length_asc(const void *a, const void *b) {
 * By applying simple qsort, the whole app is 30% faster (270ms wall time down from 400ms).
 * But, it's not a stable sort. It still finds the same number of matches though.
 * However, in case of ties, it might return any of them.
-* Requirements specify that for ties we should return the first masterParts in the file.
+* Requirements specify that for ties we should return the first masterPart in the file.
 */
 //static int compare_by_code_length_asc(const void *a, const void *b) {
 //    size_t lenA = ((const Part *)a)->codeLength;

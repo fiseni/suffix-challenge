@@ -44,7 +44,7 @@ void processor_initialize(const SourceData *data) {
     ctx.dictionary = htable_sizet_create(data->partsAscCount);
 
     create_suffix_tables(&ctx, ctx.data->masterPartsAsc, ctx.data->masterPartsAscCount, create_suffix_table_for_masterParts);
-    create_suffix_tables(&ctx, ctx.data->masterPartsAscNh, ctx.data->masterPartsAscNhCount, create_suffix_table_for_masterPartsNh);
+    create_suffix_tables(&ctx, ctx.data->masterPartsNhAsc, ctx.data->masterPartsNhAscCount, create_suffix_table_for_masterPartsNh);
     create_suffix_tables(&ctx, ctx.data->partsAsc, ctx.data->partsAscCount, create_suffix_table_for_parts);
 
     for (size_t i = 0; i < data->partsAscCount; i++) {
@@ -63,13 +63,13 @@ void processor_initialize(const SourceData *data) {
     for (long i = (long)data->masterPartsAscCount - 1; i >= 0; i--) {
         Part masterPart = data->masterPartsAsc[i];
 
-        HTableSizeTList *partsBySuffix = ctx.partSuffixesByLength[masterPart.codeLength];
-        const ListItem *originalPartIndices = htable_sizetlist_search(partsBySuffix, masterPart.code, masterPart.codeLength);
-        while (originalPartIndices) {
-            size_t originalPartIndex = originalPartIndices->value;
-            Part part = data->partsAsc[originalPartIndex];
+        HTableSizeTList *partIndexesBySuffix = ctx.partSuffixesByLength[masterPart.codeLength];
+        const ListItem *partIndexList = htable_sizetlist_search(partIndexesBySuffix, masterPart.code, masterPart.codeLength);
+        while (partIndexList) {
+            size_t partIndex = partIndexList->value;
+            Part part = data->partsAsc[partIndex];
             htable_sizet_insert_if_not_exists(ctx.dictionary, part.code, part.codeLength, masterPart.index);
-            originalPartIndices = originalPartIndices->next;
+            partIndexList = partIndexList->next;
         }
     }
 }
@@ -104,12 +104,12 @@ static thread_ret_t create_suffix_table_for_masterPartsNh(thread_arg_t arg) {
     ThreadArgs *args = (ThreadArgs *)arg;
     size_t startIndex = args->startIndex;
     size_t suffixLength = args->suffixLength;
-    const Part *masterPartsAscNh = args->ctx->data->masterPartsAscNh;
-    size_t masterPartsAscNhCount = args->ctx->data->masterPartsAscNhCount;
+    const Part *masterPartsNhAsc = args->ctx->data->masterPartsNhAsc;
+    size_t masterPartsNhAscCount = args->ctx->data->masterPartsNhAscCount;
 
-    HTableSizeT *table = htable_sizet_create(masterPartsAscNhCount - startIndex);
-    for (size_t i = startIndex; i < masterPartsAscNhCount; i++) {
-        Part mpNh = masterPartsAscNh[i];
+    HTableSizeT *table = htable_sizet_create(masterPartsNhAscCount - startIndex);
+    for (size_t i = startIndex; i < masterPartsNhAscCount; i++) {
+        Part mpNh = masterPartsNhAsc[i];
         const char *suffix = mpNh.code + (mpNh.codeLength - suffixLength);
         htable_sizet_insert_if_not_exists(table, suffix, suffixLength, mpNh.index);
     }

@@ -1,4 +1,3 @@
-#include "cross_platform_time.h"
 #include "source_data.h"
 #include "common.h"
 #include "processor.h"
@@ -16,15 +15,15 @@ static size_t run(const char *partsFile, const char *masterPartsFile, const char
     size_t matchCount = 0;
 
     for (size_t i = 0; i < data->partsOriginalCount; i++) {
-        const Part part = data->partsOriginal[i];
-        const char *match = processor_find_match(part.code, part.codeLength);
+        const Part partOriginal = data->partsOriginal[i];
+        const char *match = processor_find_match(partOriginal.code, partOriginal.codeLength);
 
         if (match) {
             matchCount++;
-            fprintf(file, "%s;%s\n", part.code, match);
+            fprintf(file, "%s;%s\n", partOriginal.code, match);
         }
         else {
-            fprintf(file, "%s;\n", part.code);
+            fprintf(file, "%s;\n", partOriginal.code);
         }
     };
 
@@ -47,9 +46,7 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
-    double start = time_get_seconds();
     size_t output = run(argv[1], argv[2], argv[3]);
     printf("%zu\n", output);
-    printf("Wall time: \t\t\t%f seconds.\n\n", time_get_seconds() - start);
     return 0;
 }

@@ -13,20 +13,23 @@
 typedef struct Part {
     const char *code;
     size_t codeLength;
-    size_t index;
+    size_t index;                       // Index to the original records. Also used for stable sorting.
 } Part;
 
 typedef struct SourceData {
-    const Part *masterPartsOriginal;
+    const Part *masterPartsOriginal;    // Original master parts records, trimmed
     size_t masterPartsOriginalCount;
-    const Part *masterPartsAsc;
-    size_t masterPartsAscCount;
-    const Part *masterPartsAscNh;
-    size_t masterPartsAscNhCount;
 
-    const Part *partsOriginal;
+    const Part *masterPartsAsc;         // Sorted master parts records, uppercased
+    size_t masterPartsAscCount;
+
+    const Part *masterPartsNhAsc;       // Sorted master parts records, uppercased, without hyphens (Nh = no hyphens)
+    size_t masterPartsNhAscCount;
+
+    const Part *partsOriginal;          // Original parts records, trimmed
     size_t partsOriginalCount;
-    const Part *partsAsc;
+
+    const Part *partsAsc;               // Sorted parts records, uppercased
     size_t partsAscCount;
 } SourceData;
 

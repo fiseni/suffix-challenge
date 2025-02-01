@@ -10,7 +10,6 @@
 #include <stdio.h>
 #include <stdbool.h>
 #include <assert.h>
-#include <ctype.h>
 
 #define CHAR_SPACE ' '
 #define CHAR_HYPHEN '-'
