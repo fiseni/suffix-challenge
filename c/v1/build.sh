@@ -3,7 +3,7 @@
 rm -rf publish
 mkdir publish
 
-FLAGS="-O3 -march=native -s -DNDEBUG -Wall -Wextra -Wno-unused-function -Wno-unused-parameter -Wno-unknown-pragmas"
-FILES="main.c common.c cross_platform_time.c thread_utils.c hash_table_sizet.c hash_table_sizetlist.c source_data.c processor.c"
+FLAGS="-O3 -march=native -s -flto -DNDEBUG -Wall -Wextra -Wno-unused-function -Wno-unused-parameter -Wno-unknown-pragmas"
+FILES="main.c cross_platform_time.c thread_utils.c hash_table_sizet.c hash_table_sizetlist.c source_data.c processor.c"
 
 gcc $FLAGS $FILES -o publish/v1

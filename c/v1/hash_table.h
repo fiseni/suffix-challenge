@@ -58,7 +58,7 @@ void htable_sizetlist_free(HTableSizeTList *table);
 // #########################################################
 
 
-inline size_t hash(size_t tableSize, const char *key, size_t keyLength) {
+static inline size_t hash(size_t tableSize, const char *key, size_t keyLength) {
     size_t hash = 0x811C9DC5; // 2166136261
     for (size_t i = 0; i < keyLength; i++) {
         hash = (hash * 31) + key[i];
@@ -66,7 +66,7 @@ inline size_t hash(size_t tableSize, const char *key, size_t keyLength) {
     return hash & (tableSize - 1);
 }
 
-inline size_t next_power_of_two(size_t n) {
+static inline size_t next_power_of_two(size_t n) {
     if (n == 0)
         return 1;
 

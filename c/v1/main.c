@@ -1,3 +1,4 @@
+#include "cross_platform_time.h"
 #include "source_data.h"
 #include "common.h"
 #include "processor.h"
@@ -46,7 +47,9 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
+    double start = time_get_seconds();
     size_t output = run(argv[1], argv[2], argv[3]);
     printf("%zu\n", output);
+    printf("Wall time: \t\t\t%f seconds.\n\n", time_get_seconds() - start);
     return 0;
 }

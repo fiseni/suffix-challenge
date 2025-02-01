@@ -129,7 +129,6 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="common.c" />
     <ClCompile Include="cross_platform_time.c" />
     <ClCompile Include="hash_table_sizetlist.c" />
     <ClCompile Include="hash_table_sizet.c" />

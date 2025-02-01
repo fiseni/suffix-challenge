@@ -1,8 +1,10 @@
+#include <sys/stat.h>
 #include "common.h"
 #include "source_data.h"
 
 static void build_parts(const char *partsPath, SourceData *data);
 static void build_masterParts(const char *masterPartsPath, SourceData *data);
+static char *read_file(const char *filePath, unsigned int sizeFactor, size_t *contentSizeOut, size_t *lineCountOut);
 static int compare_by_code_length_asc(const void *a, const void *b);
 
 const SourceData *source_data_read(const char *partsFile, const char *masterPartsFile) {
@@ -139,6 +141,56 @@ static void build_masterParts(const char *masterPartsPath, SourceData *data) {
     data->masterPartsAscCount = mpIndex;
     data->masterPartsAscNh = masterPartsAscNh;
     data->masterPartsAscNhCount = mpNohIndex;
+}
+
+static long get_file_size_bytes(const char *filePath) {
+    assert(filePath);
+
+    struct stat st;
+    if (stat(filePath, &st) != 0) {
+        perror("stat failed");
+        return -1;
+    }
+    return st.st_size;
+}
+
+static char *read_file(const char *filePath, unsigned int sizeFactor, size_t *contentSizeOut, size_t *lineCountOut) {
+    long fileSize = get_file_size_bytes(filePath);
+    FILE *file = fopen(filePath, "rb");
+    if (!file || fileSize == -1) {
+        fprintf(stderr, "Failed to open file: %s\n", filePath);
+        exit(EXIT_FAILURE);
+    }
+    assert(fileSize > 0);
+    assert(sizeFactor > 0);
+
+    size_t blockSize = sizeof(char) * fileSize * sizeFactor + sizeFactor;
+    char *block = malloc(blockSize);
+    CHECK_ALLOC(block);
+    size_t contentSize = fread(block, 1, fileSize, file);
+    fclose(file);
+
+#pragma warning(disable: 6385 6386 )
+    // MSVC thinks there is a buffer overrun, it can't calculate based on sizeFactor.
+    // If you put a literal for sizeFactor, e.g. 1, warning goes way.
+
+    // Handle the case where the file does not end with a newline
+    if (contentSize > 0 && block[contentSize - 1] != '\n') {
+        block[contentSize] = '\n';
+        contentSize++;
+    }
+
+    size_t lineCount = 0;
+    for (size_t i = 0; i < contentSize; i++) {
+        if (block[i] == '\n') {
+            lineCount++;
+        }
+    }
+#pragma warning(default: 6385 6386  )
+
+    *contentSizeOut = contentSize;
+    *lineCountOut = lineCount;
+    return block;
 }
 
 static int compare_by_code_length_asc(const void *a, const void *b) {
