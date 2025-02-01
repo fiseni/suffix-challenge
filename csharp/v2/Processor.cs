@@ -11,26 +11,9 @@ public sealed class Processor
     {
         var ctx = _ctx = new Context(data);
 
-        CreateSuffixTables(ctx, data.MasterPartsAsc, CreateSuffixTableForMasterParts);
-        CreateSuffixTables(ctx, data.MasterPartsNhAsc, CreateSuffixTableForMasterPartsNh);
-        CreateSuffixTables(ctx, data.PartsAsc, CreateSuffixTableForParts);
-
-        var masterPartsAsc = data.MasterPartsAsc;
-        var partsAsc = data.PartsAsc;
-        for (var i = masterPartsAsc.Length - 1; i >= 0; i--)
-        {
-            var masterPart = masterPartsAsc[i];
-            var partIndexesBySuffix = ctx.PartSuffixTables[masterPart.Code.Length];
-            var partIndexes = partIndexesBySuffix?.GetValueOrDefault(masterPart.Code);
-            if (partIndexes is not null)
-            {
-                for (var j = partIndexes.Count - 1; j >= 0; j--)
-                {
-                    var partIndex = partIndexes[j];
-                    ctx.PartsLookup.TryAdd(partsAsc[partIndex].Code, masterPart.Index);
-                }
-            }
-        }
+        CreateTablesInParallel(ctx, data.MasterPartsAsc, CreateSuffixTableForMasterParts);
+        CreateTablesInParallel(ctx, data.MasterPartsNhAsc, CreateSuffixTableForMasterPartsNh);
+        CreateTablesInParallel(ctx, data.PartsAsc, CreateTableForParts);
     }
 
     public ReadOnlyMemory<byte>? FindMatch(ReadOnlyMemory<byte> partCode)
@@ -42,19 +25,22 @@ public sealed class Processor
 
         var partCodeUpper = Utils.GetUpperRecord(partCode, _buffer);
 
-        var mpIndexBySuffix = ctx.MpSuffixTablesAlt[partCodeUpper.Length];
-        if (mpIndexBySuffix.HasValue && mpIndexBySuffix.Value.TryGetValue(partCodeUpper, out var mpIndex))
+        // Don't extract it to a method, it slows down for 5-10 ms (it's unable to inline for AOT).
+
+        var mpIndexByMpSuffix = ctx.MpSuffixTablesAlt[partCodeUpper.Length];
+        if (mpIndexByMpSuffix.HasValue && mpIndexByMpSuffix.Value.TryGetValue(partCodeUpper, out var mpIndex))
         {
             return data.MasterPartsOriginal[mpIndex];
         }
 
-        mpIndexBySuffix = ctx.MpNhSuffixTablesAlt[partCodeUpper.Length];
-        if (mpIndexBySuffix.HasValue && mpIndexBySuffix.Value.TryGetValue(partCodeUpper, out mpIndex))
+        var mpIndexByMpNhSuffix = ctx.MpNhSuffixTablesAlt[partCodeUpper.Length];
+        if (mpIndexByMpNhSuffix.HasValue && mpIndexByMpNhSuffix.Value.TryGetValue(partCodeUpper, out mpIndex))
         {
             return data.MasterPartsOriginal[mpIndex];
         }
 
-        if (ctx.PartsLookupAlt.TryGetValue(partCodeUpper, out mpIndex))
+        var mpIndexByPart = ctx.PartTablesAlt[partCodeUpper.Length];
+        if (mpIndexByPart.HasValue && mpIndexByPart.Value.TryGetValue(partCodeUpper, out mpIndex))
         {
             return data.MasterPartsOriginal[mpIndex];
         }
@@ -62,7 +48,7 @@ public sealed class Processor
         return null;
     }
 
-    private static void CreateSuffixTables(Context ctx, Part[] parts, Func<Context, int?[], Action<int>> func)
+    private static void CreateTablesInParallel(Context ctx, Part[] parts, Func<Context, int?[], Action<int>> func)
     {
         var startIndexesByLength = new int?[Constants.MAX_STRING_LENGTH];
         for (var i = 0; i < parts.Length; i++)
@@ -73,12 +59,27 @@ public sealed class Processor
         }
         var maxLength = BackwardFill(startIndexesByLength);
 
-        Parallel.For(Constants.MIN_STRING_LENGTH, maxLength + 1, func(ctx, startIndexesByLength));
+        Parallel.For(Constants.MIN_STRING_LENGTH - 1, maxLength + 1, func(ctx, startIndexesByLength));
     }
 
-    private static Action<int> CreateSuffixTableForMasterParts(Context ctx, int?[] startIndexesByLength) => suffixLength =>
+    private static Action<int> CreateSuffixTableForMasterParts(Context ctx, int?[] startIndexesByLength) => length =>
     {
-        var startIndex = startIndexesByLength[suffixLength];
+        // We will use the (MIN_STRING_LENGTH - 1) thread to fill the master parts dictionary.
+        if (length == Constants.MIN_STRING_LENGTH - 1)
+        {
+            var masterPartsAsc = ctx.Data.MasterPartsAsc;
+            var tempDict = new Dictionary<ReadOnlyMemory<byte>, int>(masterPartsAsc.Length, Context.Comparer);
+            for (var i = 0; i < masterPartsAsc.Length; i++)
+            {
+                var mp = masterPartsAsc[i];
+                tempDict.TryAdd(mp.Code, mp.Index);
+            }
+            ctx.MpDictionary = tempDict;
+            ctx.MpDictionaryAlt = tempDict.GetAlternateLookup<ReadOnlySpan<byte>>();
+            return;
+        }
+
+        var startIndex = startIndexesByLength[length];
         if (startIndex is not null)
         {
             var masterPartsAsc = ctx.Data.MasterPartsAsc;
@@ -86,17 +87,18 @@ public sealed class Processor
             for (var i = startIndex.Value; i < masterPartsAsc.Length; i++)
             {
                 var mp = masterPartsAsc[i];
-                var suffix = mp.Code[^suffixLength..];
+                var suffix = mp.Code[^length..];
                 tempDict.TryAdd(suffix, mp.Index);
             }
-            ctx.MpSuffixTables[suffixLength] = tempDict;
-            ctx.MpSuffixTablesAlt[suffixLength] = tempDict.GetAlternateLookup<ReadOnlySpan<byte>>();
+            ctx.MpSuffixTables[length] = tempDict;
+            ctx.MpSuffixTablesAlt[length] = tempDict.GetAlternateLookup<ReadOnlySpan<byte>>();
         }
     };
 
-    private static Action<int> CreateSuffixTableForMasterPartsNh(Context ctx, int?[] startIndexesByLength) => suffixLength =>
+    private static Action<int> CreateSuffixTableForMasterPartsNh(Context ctx, int?[] startIndexesByLength) => length =>
     {
-        var startIndex = startIndexesByLength[suffixLength];
+        if (length == Constants.MIN_STRING_LENGTH - 1) return;
+        var startIndex = startIndexesByLength[length];
         if (startIndex is not null)
         {
             var masterPartsNhAsc = ctx.Data.MasterPartsNhAsc;
@@ -104,34 +106,39 @@ public sealed class Processor
             for (var i = startIndex.Value; i < masterPartsNhAsc.Length; i++)
             {
                 var mp = masterPartsNhAsc[i];
-                var suffix = masterPartsNhAsc[i].Code[^suffixLength..];
+                var suffix = mp.Code[^length..];
                 tempDict.TryAdd(suffix, mp.Index);
             }
-            ctx.MpNhSuffixTables[suffixLength] = tempDict;
-            ctx.MpNhSuffixTablesAlt[suffixLength] = tempDict.GetAlternateLookup<ReadOnlySpan<byte>>();
+            ctx.MpNhSuffixTables[length] = tempDict;
+            ctx.MpNhSuffixTablesAlt[length] = tempDict.GetAlternateLookup<ReadOnlySpan<byte>>();
         }
     };
 
-    private static Action<int> CreateSuffixTableForParts(Context ctx, int?[] startIndexesByLength) => suffixLength =>
+    private static Action<int> CreateTableForParts(Context ctx, int?[] startIndexesByLength) => length =>
     {
-        var startIndex = startIndexesByLength[suffixLength];
+        if (length == Constants.MIN_STRING_LENGTH - 1) return;
+        var startIndex = startIndexesByLength[length];
         if (startIndex is not null)
         {
             var partsAsc = ctx.Data.PartsAsc;
-            var tempDict = new Dictionary<ReadOnlyMemory<byte>, List<int>>(partsAsc.Length - startIndex.Value, Context.Comparer);
+            var tempDict = new Dictionary<ReadOnlyMemory<byte>, int>(partsAsc.Length - startIndex.Value, Context.Comparer);
             for (var i = startIndex.Value; i < partsAsc.Length; i++)
             {
-                var suffix = partsAsc[i].Code[^suffixLength..];
-                if (tempDict.TryGetValue(suffix, out var partIndexes))
+                var partCode = partsAsc[i].Code;
+                if (partCode.Length > length) break;
+
+                for (int suffixLength = partCode.Length - 1; suffixLength >= Constants.MIN_STRING_LENGTH; suffixLength--)
                 {
-                    partIndexes.Add(i);
-                }
-                else
-                {
-                    tempDict.TryAdd(suffix, [i]);
+                    var suffix = partCode.Span[^suffixLength..];
+                    if (ctx.MpDictionaryAlt.TryGetValue(suffix, out var mpIndex))
+                    {
+                        tempDict.TryAdd(partCode, mpIndex);
+                        break;
+                    }
                 }
             }
-            ctx.PartSuffixTables[suffixLength] = tempDict;
+            ctx.PartTables[length] = tempDict;
+            ctx.PartTablesAlt[length] = tempDict.GetAlternateLookup<ReadOnlySpan<byte>>();
         }
     };
 
@@ -157,15 +164,18 @@ public sealed class Processor
         return lastFilled;
     }
 
-    private sealed class Context
+    private sealed class Context(SourceData data)
     {
         public static readonly ReadOnlyMemoryByteComparer Comparer = new();
 
-        public SourceData Data;
+        public SourceData Data = data;
 
-        public Dictionary<ReadOnlyMemory<byte>, int> PartsLookup;
-        public Dictionary<ReadOnlyMemory<byte>, int>.AlternateLookup<ReadOnlySpan<byte>> PartsLookupAlt;
-        public Dictionary<ReadOnlyMemory<byte>, List<int>>[] PartSuffixTables = new Dictionary<ReadOnlyMemory<byte>, List<int>>[Constants.MAX_STRING_LENGTH];
+        public Dictionary<ReadOnlyMemory<byte>, int>? MpDictionary;
+        public Dictionary<ReadOnlyMemory<byte>, int>.AlternateLookup<ReadOnlySpan<byte>> MpDictionaryAlt;
+
+        public Dictionary<ReadOnlyMemory<byte>, int>[] PartTables = new Dictionary<ReadOnlyMemory<byte>, int>[Constants.MAX_STRING_LENGTH];
+        public Dictionary<ReadOnlyMemory<byte>, int>.AlternateLookup<ReadOnlySpan<byte>>?[] PartTablesAlt =
+            new Dictionary<ReadOnlyMemory<byte>, int>.AlternateLookup<ReadOnlySpan<byte>>?[Constants.MAX_STRING_LENGTH];
 
         public Dictionary<ReadOnlyMemory<byte>, int>[] MpSuffixTables = new Dictionary<ReadOnlyMemory<byte>, int>[Constants.MAX_STRING_LENGTH];
         public Dictionary<ReadOnlyMemory<byte>, int>.AlternateLookup<ReadOnlySpan<byte>>?[] MpSuffixTablesAlt =
@@ -174,13 +184,6 @@ public sealed class Processor
         public Dictionary<ReadOnlyMemory<byte>, int>[] MpNhSuffixTables = new Dictionary<ReadOnlyMemory<byte>, int>[Constants.MAX_STRING_LENGTH];
         public Dictionary<ReadOnlyMemory<byte>, int>.AlternateLookup<ReadOnlySpan<byte>>?[] MpNhSuffixTablesAlt =
             new Dictionary<ReadOnlyMemory<byte>, int>.AlternateLookup<ReadOnlySpan<byte>>?[Constants.MAX_STRING_LENGTH];
-
-        public Context(SourceData data)
-        {
-            Data = data;
-            PartsLookup = new(data.PartsAsc.Length, Comparer);
-            PartsLookupAlt = PartsLookup.GetAlternateLookup<ReadOnlySpan<byte>>();
-        }
     }
 
     private sealed class ReadOnlyMemoryByteComparer :
