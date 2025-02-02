@@ -1,18 +1,35 @@
 #include <sys/stat.h>
+#include "thread_utils.h"
 #include "common.h"
 #include "source_data.h"
 
-static void build_parts(const char *partsPath, SourceData *data);
-static void build_masterParts(const char *masterPartsPath, SourceData *data);
+static thread_ret_t build_parts(thread_arg_t arg);
+static thread_ret_t build_masterParts(thread_arg_t arg);
 static char *read_file(const char *filePath, unsigned int sizeFactor, size_t *contentSizeOut, size_t *lineCountOut);
 static int compare_by_code_length_asc(const void *a, const void *b);
+
+typedef struct ThreadArgs {
+    const char *filePath;
+    SourceData *data;
+} ThreadArgs;
 
 const SourceData *source_data_read(const char *partsFile, const char *masterPartsFile) {
     SourceData *data = (SourceData *)malloc(sizeof(*data));
     CHECK_ALLOC(data);
 
-    build_parts(partsFile, data);
-    build_masterParts(masterPartsFile, data);
+    thread_t thread1;
+    int status = create_thread(&thread1, build_parts, &(ThreadArgs){.data = data, .filePath = partsFile });
+    CHECK_THREAD_CREATE_STATUS(status, (size_t)0);
+    thread_t thread2;
+    status = create_thread(&thread2, build_masterParts, &(ThreadArgs){.data = data, .filePath = masterPartsFile });
+    CHECK_THREAD_CREATE_STATUS(status, (size_t)0);
+
+
+    status = join_thread(thread1, NULL);
+    CHECK_THREAD_JOIN_STATUS(status, (size_t)0);
+    status = join_thread(thread2, NULL);
+    CHECK_THREAD_JOIN_STATUS(status, (size_t)0);
+
     return data;
 }
 
@@ -29,7 +46,11 @@ void source_data_clean(const SourceData *data) {
     free((void *)data);
 }
 
-static void build_parts(const char *partsPath, SourceData *data) {
+static thread_ret_t build_parts(thread_arg_t arg) {
+    ThreadArgs *args = (ThreadArgs *)arg;
+    const char *partsPath = args->filePath;
+    SourceData *data = args->data;
+
     size_t lineCount;
     size_t contentSize;
     char *block = read_file(partsPath, 2, &contentSize, &lineCount);
@@ -74,9 +95,14 @@ static void build_parts(const char *partsPath, SourceData *data) {
     data->partsOriginalCount = partsIndex;
     data->partsAsc = partsAsc;
     data->partsAscCount = partsIndex;
+    return 0;
 }
 
-static void build_masterParts(const char *masterPartsPath, SourceData *data) {
+static thread_ret_t build_masterParts(thread_arg_t arg) {
+    ThreadArgs *args = (ThreadArgs *)arg;
+    const char *masterPartsPath = args->filePath;
+    SourceData *data = args->data;
+
     size_t lineCount;
     size_t contentSize;
     char *block = read_file(masterPartsPath, 2, &contentSize, &lineCount);
@@ -142,6 +168,7 @@ static void build_masterParts(const char *masterPartsPath, SourceData *data) {
     data->masterPartsAscCount = mpIndex;
     data->masterPartsNhAsc = mpNhAsc;
     data->masterPartsNhAscCount = mpNhIndex;
+    return 0;
 }
 
 static long get_file_size_bytes(const char *filePath) {
@@ -203,7 +230,7 @@ static int compare_by_code_length_asc(const void *a, const void *b) {
 }
 
 /*
-* By applying simple qsort, the whole app is 30% faster (270ms wall time down from 400ms).
+* By applying simple qsort, the whole app is 30% faster.
 * But, it's not a stable sort. It still finds the same number of matches though.
 * However, in case of ties, it might return any of them.
 * Requirements specify that for ties we should return the first masterPart in the file.

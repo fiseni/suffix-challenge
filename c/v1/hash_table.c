@@ -18,13 +18,13 @@ static bool str_equals_one_length(const char *s1, const char *s2, size_t s2Lengt
     return true;
 }
 
-HTableSizeT *htable_sizet_create(size_t size) {
+HTable *htable_create(size_t size) {
     size_t tableSize = next_power_of_two(size);
     if (tableSize == 0) {
         // Some default powerOfTwo value in case of overflow.
         tableSize = 32;
     }
-    HTableSizeT *table = malloc(sizeof(*table));
+    HTable *table = malloc(sizeof(*table));
     CHECK_ALLOC(table);
     table->size = tableSize;
     table->buckets = malloc(sizeof(*table->buckets) * tableSize);
@@ -42,8 +42,8 @@ HTableSizeT *htable_sizet_create(size_t size) {
 }
 
 // Used to avoid re-computing the hash value.
-static bool search_internal(const HTableSizeT *table, const char *key, size_t keyLength, size_t index, size_t *outValue) {
-    EntrySizeT *entry = table->buckets[index];
+static bool search_internal(const HTable *table, const char *key, size_t keyLength, size_t index, size_t *outValue) {
+    Entry *entry = table->buckets[index];
     while (entry) {
         if (str_equals_one_length(entry->key, key, keyLength)) {
             *outValue = entry->value;
@@ -54,7 +54,7 @@ static bool search_internal(const HTableSizeT *table, const char *key, size_t ke
     return false;
 }
 
-bool htable_sizet_search(const HTableSizeT *table, const char *key, size_t keyLength, size_t *outValue) {
+bool htable_search(const HTable *table, const char *key, size_t keyLength, size_t *outValue) {
     if (table == NULL) {
         return false;
     }
@@ -63,7 +63,7 @@ bool htable_sizet_search(const HTableSizeT *table, const char *key, size_t keyLe
     return search_internal(table, key, keyLength, index, outValue);
 }
 
-void htable_sizet_insert_if_not_exists(HTableSizeT *table, const char *key, size_t keyLength, size_t value) {
+void htable_insert_if_not_exists(HTable *table, const char *key, size_t keyLength, size_t value) {
     size_t index = hash(table->size, key, keyLength);
     size_t existing_value;
     if (search_internal(table, key, keyLength, index, &existing_value)) {
@@ -74,14 +74,14 @@ void htable_sizet_insert_if_not_exists(HTableSizeT *table, const char *key, size
     // So, we're sure that we won't run out of space. No need to malloc again.
     assert(table->blockEntriesIndex < table->blockEntriesCount);
 
-    EntrySizeT *new_entry = &table->blockEntries[table->blockEntriesIndex++];
+    Entry *new_entry = &table->blockEntries[table->blockEntriesIndex++];
     new_entry->key = key;
     new_entry->value = value;
     new_entry->next = table->buckets[index];
     table->buckets[index] = new_entry;
 }
 
-void htable_sizet_free(HTableSizeT *table) {
+void htable_free(HTable *table) {
     if (table) {
         free(table->blockEntries);
         free(table->buckets);
