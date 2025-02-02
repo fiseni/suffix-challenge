@@ -224,9 +224,9 @@ static char *read_file(const char *filePath, unsigned int sizeFactor, size_t *co
 static int compare_by_code_length_asc(const void *a, const void *b) {
     const Part *partA = (const Part *)a;
     const Part *partB = (const Part *)b;
-    return (partA->codeLength < partB->codeLength) ? -1
-        : (partA->codeLength > partB->codeLength) ? 1
-        : (partA->index < partB->index) ? -1 : (partA->index > partB->index) ? 1 : 0;
+    return partA->codeLength == partB->codeLength
+        ? partA->index - partB->index
+        : partA->codeLength - partB->codeLength;
 }
 
 /*
@@ -238,5 +238,5 @@ static int compare_by_code_length_asc(const void *a, const void *b) {
 //static int compare_by_code_length_asc(const void *a, const void *b) {
 //    size_t lenA = ((const Part *)a)->codeLength;
 //    size_t lenB = ((const Part *)b)->codeLength;
-//    return lenA < lenB ? -1 : lenA > lenB ? 1 : 0;
+//    return lenA - lenB;
 //}
