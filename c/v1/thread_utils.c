@@ -12,9 +12,9 @@ typedef struct {
 // Windows thread procedure
 static DWORD WINAPI thread_proc(LPVOID param) {
     thread_wrapper_t *wrapper = (thread_wrapper_t *)param;
-    wrapper->func(wrapper->arg);
+    DWORD ret = wrapper->func(wrapper->arg);
     free(wrapper);
-    return 0;
+    return ret;
 }
 
 int create_thread(thread_t *thread, thread_func_t func, thread_arg_t arg) {

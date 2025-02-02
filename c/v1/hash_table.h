@@ -5,58 +5,27 @@
 
 // #########################################################
 // Hash table storing a size_t.
-typedef struct EntrySizeT {
+typedef struct Entry {
     const char *key;
     size_t value;
-    struct EntrySizeT *next;
-} EntrySizeT;
+    struct Entry *next;
+} Entry;
 
-typedef struct HTableSizeT {
-    EntrySizeT **buckets;
+typedef struct HTable {
+    Entry **buckets;
     size_t size;
 
-    EntrySizeT *blockEntries;
+    Entry *blockEntries;
     size_t blockEntriesCount;
     size_t blockEntriesIndex;
-} HTableSizeT;
+} HTable;
 
-HTableSizeT *htable_sizet_create(size_t size);
-bool htable_sizet_search(const HTableSizeT *table, const char *key, size_t keyLength, size_t *outValue);
-void htable_sizet_insert_if_not_exists(HTableSizeT *table, const char *key, size_t keyLength, size_t value);
-void htable_sizet_free(HTableSizeT *table);
+HTable *htable_create(size_t size);
+bool htable_search(const HTable *table, const char *key, size_t keyLength, size_t *outValue);
+void htable_insert_if_not_exists(HTable *table, const char *key, size_t keyLength, size_t value);
+void htable_free(HTable *table);
 
 // #########################################################
-// Hash table storing a linked list of size_t.
-typedef struct ListItem {
-    size_t value;
-    struct ListItem *next;
-} ListItem;
-
-typedef struct EntrySizeTList {
-    const char *key;
-    ListItem *list;
-    struct EntrySizeTList *next;
-} EntrySizeTList;
-
-typedef struct HTableSizeTList {
-    EntrySizeTList **buckets;
-    size_t size;
-
-    EntrySizeTList *blockEntries;
-    size_t blockEntriesCount;
-    size_t blockEntriesIndex;
-    ListItem *blockItems;
-    size_t blockItemsCount;
-    size_t blockItemsIndex;
-} HTableSizeTList;
-
-HTableSizeTList *htable_sizetlist_create(size_t size);
-const ListItem *htable_sizetlist_search(const HTableSizeTList *table, const char *key, size_t keyLength);
-// It always add the value. If key is present, it inserts in the beginning of the list.
-void htable_sizetlist_insert(HTableSizeTList *table, const char *key, size_t keyLength, size_t value);
-void htable_sizetlist_free(HTableSizeTList *table);
-// #########################################################
-
 
 static inline size_t hash(size_t tableSize, const char *key, size_t keyLength) {
     size_t hash = 0x811C9DC5; // 2166136261
@@ -86,7 +55,7 @@ static inline size_t next_power_of_two(size_t n) {
     // Add 1 to get the next power of 2
     n++;
 
-    // For clarity in case of overflow.
+    // For clarity, in case of overflow.
     // If n becomes 0 after shifting, it means the next power of 2 exceeds the limit
     if (n == 0)
         return 0;

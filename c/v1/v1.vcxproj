@@ -130,8 +130,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="cross_platform_time.c" />
-    <ClCompile Include="hash_table_sizetlist.c" />
-    <ClCompile Include="hash_table_sizet.c" />
+    <ClCompile Include="hash_table.c" />
     <ClCompile Include="main.c" />
     <ClCompile Include="processor.c" />
     <ClCompile Include="source_data.c" />
