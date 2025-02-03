@@ -100,7 +100,7 @@ static thread_ret_t build_masterParts(thread_arg_t arg) {
 
     size_t lineCount;
     size_t contentSize;
-    char *block = read_file(masterPartsPath, 2, &contentSize, &lineCount);
+    char *block = read_file(masterPartsPath, 3, &contentSize, &lineCount);
 
     Part *mpOriginal = malloc(lineCount * sizeof(*mpOriginal));
     CHECK_ALLOC(mpOriginal);
