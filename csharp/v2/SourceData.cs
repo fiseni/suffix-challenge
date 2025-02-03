@@ -5,16 +5,17 @@ namespace v2;
 /* Fati Iseni
  * To be cache friendly, it's crucial we store the content in a contiguous memory block.
  * - File.ReadAllLines - it's convenient, but strings might/will be dispersed in the memory.
- * - File.ReadAllText - maps the whole content to a single string, so all chars are contiguous. 
- *   But, we know the content is ASCII, and the upper byte is a waste. It might lead to cache line evictions more often.
+ * - File.ReadAllText - it maps the whole content to a single string, so all chars are contiguous. 
+ *   But, we know the content is ASCII, and the upper byte is a waste (char is 2 bytes in .NET). It might lead to cache line evictions more often.
  * - File.ReadAllBytes - maps the whole content to a single byte[], so all bytes are contiguous.
  * 
  * We'll have a single byte[] memory block and use Memory<byte> to reference individual records.
- * Memory<byte> once boxed will have minimum size of 32 bytes (an _object field included in the 24 bytes, and additional 2 int fields, total 32 bytes).
+ * Memory<byte> is 16 bytes struct. If boxed will have minimum size of 32 bytes (an _object field included in the 24 bytes, and additional 2 int fields, total 32 bytes).
  * The overhead of the string object is 24 bytes. They're treated specially in .NET, and some of the fields (e.g. _stringLength) are stored in the object header itself.
- * So, we have additional 8 bytes overhead, but it's worth it considering the content is contiguous.
+ * There is no Memory<byte> boxing here, but there might be once used as a dictionary key in Processor. In case of strings, they are immutable, so there will be a new string instance for each key anyway.
+ * Overall, we'll save some memory and have better cache locality.
  * 
- * If we define the Part as a struct, we'll avoid Memory<byte> boxing here. Then even the references will be stored contiguously.
+ * If we define the Part as a struct, we'll avoid instantiating Part objects in SourceData. Then even the references will be stored contiguously.
  * But, sorting the array then becomes expensive, and the overall performance was slower.
  */
 

@@ -4,7 +4,7 @@
 #include "source_data.h"
 
 typedef struct Context {
-    SourceData *data;
+    const SourceData *data;
     HTable *mpTable;
     HTable *mpSuffixesTables[MAX_STRING_LENGTH];
     HTable *mpNhSuffixesTables[MAX_STRING_LENGTH];

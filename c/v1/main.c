@@ -3,7 +3,9 @@
 #include "processor.h"
 
 static size_t run(const char *partsFile, const char *masterPartsFile, const char *resultsFile) {
-    const SourceData *data = source_data_read(partsFile, masterPartsFile);
+    SourceData data = { 0 };
+    source_data_load(&data, partsFile, masterPartsFile);
+    processor_initialize(&data);
 
     FILE *file = fopen(resultsFile, "w");
     if (!file) {
@@ -11,11 +13,9 @@ static size_t run(const char *partsFile, const char *masterPartsFile, const char
         return 0;
     }
 
-    processor_initialize(data);
     size_t matchCount = 0;
-
-    for (size_t i = 0; i < data->partsOriginalCount; i++) {
-        const Part partOriginal = data->partsOriginal[i];
+    for (size_t i = 0; i < data.partsOriginalCount; i++) {
+        const Part partOriginal = data.partsOriginal[i];
         const char *match = processor_find_match(partOriginal.code, partOriginal.codeLength);
 
         if (match) {

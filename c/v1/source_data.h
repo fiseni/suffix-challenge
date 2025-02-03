@@ -33,7 +33,7 @@ typedef struct SourceData {
     size_t partsAscCount;
 } SourceData;
 
-const SourceData *source_data_read(const char *partsFile, const char *masterPartsFile);
+void source_data_load(SourceData *data, const char *partsFile, const char *masterPartsFile);
 void source_data_clean(const SourceData *data);
 
 #endif

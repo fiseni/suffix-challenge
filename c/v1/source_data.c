@@ -13,10 +13,7 @@ typedef struct ThreadArgs {
     SourceData *data;
 } ThreadArgs;
 
-const SourceData *source_data_read(const char *partsFile, const char *masterPartsFile) {
-    SourceData *data = (SourceData *)malloc(sizeof(*data));
-    CHECK_ALLOC(data);
-
+void source_data_load(SourceData *data, const char *partsFile, const char *masterPartsFile) {
     thread_t thread1;
     int status = create_thread(&thread1, build_parts, &(ThreadArgs){.data = data, .filePath = partsFile });
     CHECK_THREAD_CREATE_STATUS(status, (size_t)0);
@@ -29,8 +26,6 @@ const SourceData *source_data_read(const char *partsFile, const char *masterPart
     CHECK_THREAD_JOIN_STATUS(status, (size_t)0);
     status = join_thread(thread2, NULL);
     CHECK_THREAD_JOIN_STATUS(status, (size_t)0);
-
-    return data;
 }
 
 void source_data_clean(const SourceData *data) {
@@ -225,8 +220,8 @@ static int compare_by_code_length_asc(const void *a, const void *b) {
     const Part *partA = (const Part *)a;
     const Part *partB = (const Part *)b;
     return partA->codeLength == partB->codeLength
-        ? partA->index - partB->index
-        : partA->codeLength - partB->codeLength;
+        ? (int)partA->index - (int)partB->index
+        : (int)partA->codeLength - (int)partB->codeLength;
 }
 
 /*
