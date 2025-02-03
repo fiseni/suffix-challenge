@@ -1,11 +1,11 @@
 #include <sys/stat.h>
 #include "thread_utils.h"
+#include "mmap_utils.h"
 #include "common.h"
 #include "source_data.h"
 
 static thread_ret_t build_parts(thread_arg_t arg);
 static thread_ret_t build_masterParts(thread_arg_t arg);
-static char *read_file(const char *filePath, unsigned int sizeFactor, size_t *contentSizeOut, size_t *lineCountOut);
 static int compare_by_code_length_asc(const void *a, const void *b);
 
 typedef struct ThreadArgs {
@@ -47,8 +47,11 @@ static thread_ret_t build_parts(thread_arg_t arg) {
     SourceData *data = args->data;
 
     size_t lineCount;
-    size_t contentSize;
-    char *block = read_file(partsPath, 2, &contentSize, &lineCount);
+    size_t fileSize;
+    const char *block = read_file(partsPath, &fileSize, &lineCount);
+
+    char *blockUpper = malloc(fileSize + 2); // +2 for endline terminator
+    CHECK_ALLOC(blockUpper);
 
     Part *partsOriginal = malloc(lineCount * sizeof(*partsOriginal));
     CHECK_ALLOC(partsOriginal);
@@ -57,15 +60,13 @@ static thread_ret_t build_parts(thread_arg_t arg) {
 
     size_t partsIndex = 0;
     size_t blockIndex = 0;
-    size_t blockUpperIndex = contentSize;
+    size_t blockUpperIndex = 0;
 
-    for (size_t i = 0; i < contentSize; i++) {
+    for (size_t i = 0; i < fileSize; i++) {
         if (block[i] != '\n') continue;
 
-        block[i] = '\0';
         size_t length = i - blockIndex;
         if (i > 0 && block[i - 1] == '\r') {
-            block[i - 1] = '\0';
             length--;
         }
         assert(partsIndex < lineCount);
@@ -75,7 +76,7 @@ static thread_ret_t build_parts(thread_arg_t arg) {
         partsOriginal[partsIndex].codeLength = length;
         partsOriginal[partsIndex].index = partsIndex;
 
-        partsAsc[partsIndex].code = str_to_upper(trimmedRecord, length, &block[blockUpperIndex]);
+        partsAsc[partsIndex].code = str_to_upper(trimmedRecord, length, &blockUpper[blockUpperIndex]);
         partsAsc[partsIndex].codeLength = length;
         partsAsc[partsIndex].index = partsIndex;
         blockUpperIndex += length + 1; // +1 for null terminator
@@ -100,7 +101,10 @@ static thread_ret_t build_masterParts(thread_arg_t arg) {
 
     size_t lineCount;
     size_t contentSize;
-    char *block = read_file(masterPartsPath, 2, &contentSize, &lineCount);
+    const char *block = read_file(masterPartsPath, &contentSize, &lineCount);
+
+    char *blockExtra = malloc(contentSize * 2 + 2); // max size, for upper records and no hyphens
+    CHECK_ALLOC(blockExtra);
 
     Part *mpOriginal = malloc(lineCount * sizeof(*mpOriginal));
     CHECK_ALLOC(mpOriginal);
@@ -112,17 +116,15 @@ static thread_ret_t build_masterParts(thread_arg_t arg) {
     size_t mpIndex = 0;
     size_t mpNhIndex = 0;
     size_t blockIndex = 0;
-    size_t blockIndexExtra = contentSize;
+    size_t blockIndexExtra = 0;
     bool containsHyphens = false;
 
     for (size_t i = 0; i < contentSize; i++) {
         if (block[i] == CHAR_HYPHEN) containsHyphens = true;
         if (block[i] != '\n') continue;
 
-        block[i] = '\0';
         size_t length = i - blockIndex;
         if (i > 0 && block[i - 1] == '\r') {
-            block[i - 1] = '\0';
             length--;
         }
         assert(mpIndex < lineCount);
@@ -133,7 +135,7 @@ static thread_ret_t build_masterParts(thread_arg_t arg) {
             mpOriginal[mpIndex].codeLength = length;
             mpOriginal[mpIndex].index = mpIndex;
 
-            const char *upperRecord = str_to_upper(trimmedRecord, length, &block[blockIndexExtra]);
+            const char *upperRecord = str_to_upper(trimmedRecord, length, &blockExtra[blockIndexExtra]);
             mpAsc[mpIndex].code = upperRecord;
             mpAsc[mpIndex].codeLength = length;
             mpAsc[mpIndex].index = mpIndex;
@@ -141,7 +143,7 @@ static thread_ret_t build_masterParts(thread_arg_t arg) {
 
             if (containsHyphens) {
                 size_t codeNhLength;
-                mpNhAsc[mpNhIndex].code = str_remove_hyphens(upperRecord, length, &block[blockIndexExtra], &codeNhLength);
+                mpNhAsc[mpNhIndex].code = str_remove_hyphens(upperRecord, length, &blockExtra[blockIndexExtra], &codeNhLength);
                 mpNhAsc[mpNhIndex].codeLength = codeNhLength;
                 mpNhAsc[mpNhIndex].index = mpIndex;
                 mpNhIndex++;
@@ -164,56 +166,6 @@ static thread_ret_t build_masterParts(thread_arg_t arg) {
     data->masterPartsNhAsc = mpNhAsc;
     data->masterPartsNhAscCount = mpNhIndex;
     return 0;
-}
-
-static long get_file_size_bytes(const char *filePath) {
-    assert(filePath);
-
-    struct stat st;
-    if (stat(filePath, &st) != 0) {
-        perror("stat failed");
-        return -1;
-    }
-    return st.st_size;
-}
-
-static char *read_file(const char *filePath, unsigned int sizeFactor, size_t *contentSizeOut, size_t *lineCountOut) {
-    long fileSize = get_file_size_bytes(filePath);
-    FILE *file = fopen(filePath, "rb");
-    if (!file || fileSize == -1) {
-        fprintf(stderr, "Failed to open file: %s\n", filePath);
-        exit(EXIT_FAILURE);
-    }
-    assert(fileSize > 0);
-    assert(sizeFactor > 0);
-
-    size_t blockSize = sizeof(char) * fileSize * sizeFactor + sizeFactor;
-    char *block = malloc(blockSize);
-    CHECK_ALLOC(block);
-    size_t contentSize = fread(block, 1, fileSize, file);
-    fclose(file);
-
-#pragma warning(disable: 6385 6386 )
-    // MSVC thinks there is a buffer overrun, it can't calculate based on sizeFactor.
-    // If you put a literal for sizeFactor, e.g. 1, warning goes way.
-
-    // Handle the case where the file does not end with a newline
-    if (contentSize > 0 && block[contentSize - 1] != '\n') {
-        block[contentSize] = '\n';
-        contentSize++;
-    }
-
-    size_t lineCount = 0;
-    for (size_t i = 0; i < contentSize; i++) {
-        if (block[i] == '\n') {
-            lineCount++;
-        }
-    }
-#pragma warning(default: 6385 6386  )
-
-    *contentSizeOut = contentSize;
-    *lineCountOut = lineCount;
-    return block;
 }
 
 static int compare_by_code_length_asc(const void *a, const void *b) {

@@ -132,6 +132,7 @@
     <ClCompile Include="cross_platform_time.c" />
     <ClCompile Include="hash_table.c" />
     <ClCompile Include="main.c" />
+    <ClCompile Include="mmap_utils.c" />
     <ClCompile Include="processor.c" />
     <ClCompile Include="source_data.c" />
     <ClCompile Include="thread_utils.c" />
@@ -139,6 +140,7 @@
   <ItemGroup>
     <ClInclude Include="cross_platform_time.h" />
     <ClInclude Include="hash_table.h" />
+    <ClInclude Include="mmap_utils.h" />
     <ClInclude Include="processor.h" />
     <ClInclude Include="source_data.h" />
     <ClInclude Include="thread_utils.h" />

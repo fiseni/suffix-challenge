@@ -58,7 +58,7 @@ static inline const char *str_remove_hyphens(const char *src, size_t srcLength, 
     return buffer;
 }
 
-static inline const char *str_trim_in_place(char *src, size_t srcLength, size_t *outLength) {
+static inline const char *str_trim_in_place(const char *src, size_t srcLength, size_t *outLength) {
     assert(src);
     assert(outLength);
 
@@ -68,7 +68,6 @@ static inline const char *str_trim_in_place(char *src, size_t srcLength, size_t 
     }
 
     if (start == srcLength) {
-        src[0] = '\0';
         *outLength = 0;
         return src;
     }
@@ -78,7 +77,7 @@ static inline const char *str_trim_in_place(char *src, size_t srcLength, size_t 
         end--;
     }
 
-    src[end + 1] = '\0';
+    // We won't write null termination characters. The src is memory mapped file.
     *outLength = end - start + 1;
     return &src[start];
 }
