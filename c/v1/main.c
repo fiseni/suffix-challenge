@@ -1,3 +1,4 @@
+#include <string.h>
 #include "source_data.h"
 #include "common.h"
 #include "processor.h"
@@ -7,27 +8,38 @@ static size_t run(const char *partsFile, const char *masterPartsFile, const char
     source_data_load(&data, partsFile, masterPartsFile);
     processor_initialize(&data);
 
+    // Two records per line. Each record is max 49 chars + CR + LC + separator
+    char *resultsBlock = malloc((MAX_STRING_LENGTH * 2 + 3) * data.partsOriginalCount);
+    size_t resultsBlockIndex = 0;
+    size_t matchCount = 0;
+
+    for (size_t i = 0; i < data.partsOriginalCount; i++) {
+        const Part partOriginal = data.partsOriginal[i];
+        size_t mpIndex = processor_find_mp_index(partOriginal.code, partOriginal.codeLength);
+
+        memcpy(resultsBlock + resultsBlockIndex, partOriginal.code, partOriginal.codeLength);
+        resultsBlockIndex += partOriginal.codeLength;
+        resultsBlock[resultsBlockIndex++] = CHAR_SEMICOLON;
+
+        if (mpIndex != MAX_SIZE_T_VALUE) {
+            const Part mpOriginal = data.masterPartsOriginal[mpIndex];
+            memcpy(resultsBlock + resultsBlockIndex, mpOriginal.code, mpOriginal.codeLength);
+            resultsBlockIndex += mpOriginal.codeLength;
+            matchCount++;
+        }
+
+        resultsBlock[resultsBlockIndex++] = '\n';
+    };
+
     FILE *file = fopen(resultsFile, "w");
     if (!file) {
         perror("Failed to open file");
         return 0;
     }
-
-    size_t matchCount = 0;
-    for (size_t i = 0; i < data.partsOriginalCount; i++) {
-        const Part partOriginal = data.partsOriginal[i];
-        const char *match = processor_find_match(partOriginal.code, partOriginal.codeLength);
-
-        if (match) {
-            matchCount++;
-            fprintf(file, "%s;%s\n", partOriginal.code, match);
-        }
-        else {
-            fprintf(file, "%s;\n", partOriginal.code);
-        }
-    };
-
+    fwrite(resultsBlock, 1, resultsBlockIndex, file);
     fclose(file);
+
+    //free(resultsBlock);
     //processor_clean();
     //source_data_clean(data);
     return matchCount;

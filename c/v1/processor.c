@@ -25,24 +25,19 @@ static thread_ret_t create_suffix_tables_for_masterParts(thread_arg_t arg);
 static thread_ret_t create_suffix_tables_for_masterPartsNh(thread_arg_t arg);
 static thread_ret_t create_tables_for_parts(thread_arg_t arg);
 
-const char *processor_find_match(const char *partCode, size_t partCodeLength) {
+size_t processor_find_mp_index(const char *partCode, size_t partCodeLength) {
     if (partCodeLength < MIN_STRING_LENGTH) {
-        return NULL;
+        return MAX_SIZE_T_VALUE;
     }
     char buffer[MAX_STRING_LENGTH];
     str_to_upper(partCode, partCodeLength, buffer);
 
     size_t mpIndex;
-    if (htable_search(ctx.mpSuffixesTables[partCodeLength], buffer, partCodeLength, &mpIndex))
-        return ctx.data->masterPartsOriginal[mpIndex].code;
+    if (htable_search(ctx.mpSuffixesTables[partCodeLength], buffer, partCodeLength, &mpIndex)) return mpIndex;
+    if (htable_search(ctx.mpNhSuffixesTables[partCodeLength], buffer, partCodeLength, &mpIndex)) return mpIndex;
+    if (htable_search(ctx.partTables[partCodeLength], buffer, partCodeLength, &mpIndex)) return mpIndex;
 
-    if (htable_search(ctx.mpNhSuffixesTables[partCodeLength], buffer, partCodeLength, &mpIndex))
-        return ctx.data->masterPartsOriginal[mpIndex].code;
-
-    if (htable_search(ctx.partTables[partCodeLength], buffer, partCodeLength, &mpIndex))
-        return ctx.data->masterPartsOriginal[mpIndex].code;
-
-    return NULL;
+    return MAX_SIZE_T_VALUE;
 }
 
 void processor_initialize(const SourceData *data) {
