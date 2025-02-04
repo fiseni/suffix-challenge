@@ -10,6 +10,11 @@
 // Based on the requirements we should ignore part codes with less than 3 characters.
 #define MIN_STRING_LENGTH ((size_t)3)
 
+typedef struct StringAllocationBlock {
+    const void *blockParts;
+    const void *blockMasterParts;
+} StringAllocationBlock;
+
 typedef struct Part {
     const char *code;
     size_t codeLength;
@@ -31,6 +36,8 @@ typedef struct SourceData {
 
     const Part *partsAsc;               // Sorted parts records, uppercased
     size_t partsAscCount;
+
+    StringAllocationBlock stringBlock;
 } SourceData;
 
 void source_data_load(SourceData *data, const char *partsFile, const char *masterPartsFile);

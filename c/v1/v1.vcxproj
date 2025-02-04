@@ -129,6 +129,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="allocator.c" />
     <ClCompile Include="cross_platform_time.c" />
     <ClCompile Include="hash_table.c" />
     <ClCompile Include="main.c" />
@@ -137,6 +138,7 @@
     <ClCompile Include="thread_utils.c" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="allocator.h" />
     <ClInclude Include="cross_platform_time.h" />
     <ClInclude Include="hash_table.h" />
     <ClInclude Include="processor.h" />

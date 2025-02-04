@@ -1,4 +1,5 @@
 #include <sys/stat.h>
+#include "allocator.h"
 #include "thread_utils.h"
 #include "common.h"
 #include "source_data.h"
@@ -30,8 +31,8 @@ void source_data_load(SourceData *data, const char *partsFile, const char *maste
 
 void source_data_clean(const SourceData *data) {
     // All strings are allocated from a single block
-    free((void *)data->masterPartsOriginal->code);
-    free((void *)data->partsOriginal->code);
+    free((void *)data->stringBlock.blockParts);
+    free((void *)data->stringBlock.blockMasterParts);
 
     free((void *)data->masterPartsOriginal);
     free((void *)data->masterPartsAsc);
@@ -49,9 +50,9 @@ static thread_ret_t build_parts(thread_arg_t arg) {
     size_t contentSize;
     char *block = read_file(partsPath, 2, &contentSize, &lineCount);
 
-    Part *partsOriginal = malloc(lineCount * sizeof(*partsOriginal));
+    Part *partsOriginal = allocator_alloc(lineCount * sizeof(*partsOriginal));
     CHECK_ALLOC(partsOriginal);
-    Part *partsAsc = malloc(lineCount * sizeof(*partsAsc));
+    Part *partsAsc = allocator_alloc(lineCount * sizeof(*partsAsc));
     CHECK_ALLOC(partsAsc);
 
     size_t partsIndex = 0;
@@ -101,11 +102,11 @@ static thread_ret_t build_masterParts(thread_arg_t arg) {
     size_t contentSize;
     char *block = read_file(masterPartsPath, 3, &contentSize, &lineCount);
 
-    Part *mpOriginal = malloc(lineCount * sizeof(*mpOriginal));
+    Part *mpOriginal = allocator_alloc(lineCount * sizeof(*mpOriginal));
     CHECK_ALLOC(mpOriginal);
-    Part *mpAsc = malloc(lineCount * sizeof(*mpAsc));
+    Part *mpAsc = allocator_alloc(lineCount * sizeof(*mpAsc));
     CHECK_ALLOC(mpAsc);
-    Part *mpNhAsc = malloc(lineCount * sizeof(*mpNhAsc));
+    Part *mpNhAsc = allocator_alloc(lineCount * sizeof(*mpNhAsc));
     CHECK_ALLOC(mpNhAsc);
 
     size_t mpIndex = 0;
@@ -187,7 +188,7 @@ static char *read_file(const char *filePath, unsigned int sizeFactor, size_t *co
     assert(sizeFactor > 0);
 
     size_t blockSize = sizeof(char) * fileSize * sizeFactor + sizeFactor;
-    char *block = malloc(blockSize);
+    char *block = allocator_alloc(blockSize);
     CHECK_ALLOC(block);
     size_t contentSize = fread(block, 1, fileSize, file);
     fclose(file);
@@ -268,8 +269,8 @@ static void merge_sort_recursive(Part *array, Part *tempArray, size_t left, size
 }
 
 static void merge_sort_by_code_length(Part *array, size_t size) {
-    Part *tempArray = malloc(size * sizeof(Part));
+    Part *tempArray = allocator_alloc(size * sizeof(Part));
     CHECK_ALLOC(tempArray);
     merge_sort_recursive(array, tempArray, 0, size - 1);
-    free(tempArray);
+    //free(tempArray); // We switched to allocator.
 }

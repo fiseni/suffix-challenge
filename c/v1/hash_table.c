@@ -1,3 +1,4 @@
+#include "allocator.h"
 #include "common.h"
 #include "hash_table.h"
 
@@ -60,10 +61,10 @@ HTable *htable_create(size_t size) {
         // Some default powerOfTwo value in case of overflow.
         tableSize = 32;
     }
-    HTable *table = malloc(sizeof(*table));
+    HTable *table = allocator_alloc(sizeof(*table));
     CHECK_ALLOC(table);
     table->size = tableSize;
-    table->buckets = malloc(sizeof(*table->buckets) * tableSize);
+    table->buckets = allocator_alloc(sizeof(*table->buckets) * tableSize);
     CHECK_ALLOC(table->buckets);
     for (size_t i = 0; i < tableSize; i++) {
         table->buckets[i] = NULL;
@@ -71,7 +72,7 @@ HTable *htable_create(size_t size) {
 
     table->blockEntriesIndex = 0;
     table->blockEntriesCount = size;
-    table->blockEntries = malloc(sizeof(*table->blockEntries) * table->blockEntriesCount);
+    table->blockEntries = allocator_alloc(sizeof(*table->blockEntries) * table->blockEntriesCount);
     CHECK_ALLOC(table->blockEntries);
 
     return table;

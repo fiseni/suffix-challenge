@@ -1,15 +1,18 @@
 #include <string.h>
-#include "source_data.h"
+#include "allocator.h"
 #include "common.h"
+#include "source_data.h"
 #include "processor.h"
 
 static size_t run(const char *partsFile, const char *masterPartsFile, const char *resultsFile) {
+    allocator_init();
+
     SourceData data = { 0 };
     source_data_load(&data, partsFile, masterPartsFile);
     processor_initialize(&data);
 
     // Two records per line. Each record is max 49 chars + CR + LC + separator
-    char *resultsBlock = malloc((MAX_STRING_LENGTH * 2 + 3) * data.partsOriginalCount);
+    char *resultsBlock = allocator_alloc((MAX_STRING_LENGTH * 2 + 3) * data.partsOriginalCount);
     size_t resultsBlockIndex = 0;
     size_t matchCount = 0;
 
@@ -39,9 +42,12 @@ static size_t run(const char *partsFile, const char *masterPartsFile, const char
     fwrite(resultsBlock, 1, resultsBlockIndex, file);
     fclose(file);
 
+    // We switched to allocator
     //free(resultsBlock);
     //processor_clean();
     //source_data_clean(&data);
+
+    allocator_destroy();
     return matchCount;
 }
 
