@@ -1,4 +1,4 @@
-// thread_utils.c
+#include "allocator.h"
 #include "thread_utils.h"
 
 #ifdef _WIN32
@@ -13,12 +13,12 @@ typedef struct {
 static DWORD WINAPI thread_proc(LPVOID param) {
     thread_wrapper_t *wrapper = (thread_wrapper_t *)param;
     DWORD ret = wrapper->func(wrapper->arg);
-    free(wrapper);
+    //free(wrapper); // We switched to allocator.
     return ret;
 }
 
 int create_thread(thread_t *thread, thread_func_t func, thread_arg_t arg) {
-    thread_wrapper_t *wrapper = malloc(sizeof(thread_wrapper_t));
+    thread_wrapper_t *wrapper = allocator_alloc(sizeof(thread_wrapper_t));
     if (!wrapper) return -1;
     wrapper->func = func;
     wrapper->arg = arg;
@@ -31,7 +31,7 @@ int create_thread(thread_t *thread, thread_func_t func, thread_arg_t arg) {
         NULL                // receive thread identifier
     );
     if (*thread == NULL) {
-        free(wrapper);
+        //free(wrapper); // We switched to allocator.
         return -1;
     }
     return 0;

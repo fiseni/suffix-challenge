@@ -30,7 +30,10 @@
     <ClCompile Include="cross_platform_time.c">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="hash_table_sizet.c">
+    <ClCompile Include="hash_table.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="allocator.c">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
@@ -51,6 +54,9 @@
       <Filter>Source Files</Filter>
     </ClInclude>
     <ClInclude Include="common.h">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="allocator.h">
       <Filter>Source Files</Filter>
     </ClInclude>
   </ItemGroup>
