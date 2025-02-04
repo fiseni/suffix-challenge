@@ -11,7 +11,7 @@
 static const size_t BLOCK_SIZE_INITIAL = (size_t)(1000 * 1024) * 1024;
 static const size_t ALIGNMENT = 64;
 
-static unsigned char *block = NULL;
+static uint8_t *block = NULL;
 static size_t blockSize = 0;
 static size_t offset = 0;
 static thread_mutex_t mutex;
@@ -22,7 +22,7 @@ void allocator_init() {
     thread_mutex_init(&mutex);
 
     blockSize = BLOCK_SIZE_INITIAL;
-    block = (unsigned char *)malloc(blockSize);
+    block = (uint8_t *)malloc(blockSize);
     offset = 0;
 
     if (block == NULL) {

@@ -90,6 +90,7 @@ static thread_ret_t build_parts(thread_arg_t arg) {
     data->partsOriginalCount = partsIndex;
     data->partsAsc = partsAsc;
     data->partsAscCount = partsIndex;
+    data->stringBlock.blockParts = block;
     return 0;
 }
 
@@ -163,6 +164,7 @@ static thread_ret_t build_masterParts(thread_arg_t arg) {
     data->masterPartsAscCount = mpIndex;
     data->masterPartsNhAsc = mpNhAsc;
     data->masterPartsNhAscCount = mpNhIndex;
+    data->stringBlock.blockMasterParts = block;
     return 0;
 }
 
