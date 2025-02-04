@@ -6,7 +6,7 @@
 static thread_ret_t build_parts(thread_arg_t arg);
 static thread_ret_t build_masterParts(thread_arg_t arg);
 static char *read_file(const char *filePath, unsigned int sizeFactor, size_t *contentSizeOut, size_t *lineCountOut);
-static int compare_by_code_length_asc(const void *a, const void *b);
+static void merge_sort_by_code_length(Part *array, size_t size);
 
 typedef struct ThreadArgs {
     const char *filePath;
@@ -38,7 +38,6 @@ void source_data_clean(const SourceData *data) {
     free((void *)data->masterPartsNhAsc);
     free((void *)data->partsOriginal);
     free((void *)data->partsAsc);
-    free((void *)data);
 }
 
 static thread_ret_t build_parts(thread_arg_t arg) {
@@ -84,7 +83,7 @@ static thread_ret_t build_parts(thread_arg_t arg) {
         blockIndex = i + 1;
     }
 
-    qsort(partsAsc, partsIndex, sizeof(*partsAsc), compare_by_code_length_asc);
+    merge_sort_by_code_length(partsAsc, partsIndex);
 
     data->partsOriginal = partsOriginal;
     data->partsOriginalCount = partsIndex;
@@ -154,8 +153,8 @@ static thread_ret_t build_masterParts(thread_arg_t arg) {
         containsHyphens = false;
     }
 
-    qsort(mpAsc, mpIndex, sizeof(*mpAsc), compare_by_code_length_asc);
-    qsort(mpNhAsc, mpNhIndex, sizeof(*mpNhAsc), compare_by_code_length_asc);
+    merge_sort_by_code_length(mpAsc, mpIndex);
+    merge_sort_by_code_length(mpNhAsc, mpNhIndex);
 
     data->masterPartsOriginal = mpOriginal;
     data->masterPartsOriginalCount = mpIndex;
@@ -216,22 +215,61 @@ static char *read_file(const char *filePath, unsigned int sizeFactor, size_t *co
     return block;
 }
 
-static int compare_by_code_length_asc(const void *a, const void *b) {
-    const Part *partA = (const Part *)a;
-    const Part *partB = (const Part *)b;
-    return partA->codeLength == partB->codeLength
-        ? (int)partA->index - (int)partB->index
-        : (int)partA->codeLength - (int)partB->codeLength;
+
+/*  We need stable sorting algorithm.
+    I was using the built-in qsort (unstable) with a custom compare function that additionally uses the index to make it stable.
+    But it was slower (~40 ms overall) than the hand rolled merge sort, which is a stable algorithm.
+    For reference, here is the comparison function I used for qsort.
+
+    static int compare_by_code_length_asc(const void *a, const void *b) {
+        const Part *partA = (const Part *)a;
+        const Part *partB = (const Part *)b;
+        return partA->codeLength == partB->codeLength
+            ? (int)partA->index - (int)partB->index
+            : (int)partA->codeLength - (int)partB->codeLength;
+    }
+*/
+
+static void merge(Part *array, Part *tempArray, size_t left, size_t mid, size_t right) {
+    size_t i = left, j = mid + 1, k = left;
+
+    while (i <= mid && j <= right) {
+        if (array[i].codeLength <= array[j].codeLength) {
+            tempArray[k++] = array[i++];
+        }
+        else {
+            tempArray[k++] = array[j++];
+        }
+    }
+
+    // I tried memcpy instead of these loops but it was slower.
+    // Looping though the elements is faster.
+
+    while (i <= mid) {
+        tempArray[k++] = array[i++];
+    }
+
+    while (j <= right) {
+        tempArray[k++] = array[j++];
+    }
+
+    for (i = left; i <= right; i++) {
+        array[i] = tempArray[i];
+    }
 }
 
-/*
-* By applying simple qsort, the whole app is 30% faster.
-* But, it's not a stable sort. It still finds the same number of matches though.
-* However, in case of ties, it might return any of them.
-* Requirements specify that for ties we should return the first masterPart in the file.
-*/
-//static int compare_by_code_length_asc(const void *a, const void *b) {
-//    size_t lenA = ((const Part *)a)->codeLength;
-//    size_t lenB = ((const Part *)b)->codeLength;
-//    return lenA - lenB;
-//}
+static void merge_sort_recursive(Part *array, Part *tempArray, size_t left, size_t right) {
+    if (left < right) {
+        size_t mid = left + (right - left) / 2;
+        merge_sort_recursive(array, tempArray, left, mid);
+        merge_sort_recursive(array, tempArray, mid + 1, right);
+        merge(array, tempArray, left, mid, right);
+    }
+}
+
+static void merge_sort_by_code_length(Part *array, size_t size) {
+    Part *tempArray = malloc(size * sizeof(Part));
+    CHECK_ALLOC(tempArray);
+    merge_sort_recursive(array, tempArray, 0, size - 1);
+    free(tempArray);
+}

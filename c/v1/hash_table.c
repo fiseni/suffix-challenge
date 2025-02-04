@@ -6,6 +6,42 @@
 * It is tailored for our scenario and it is safe to use only within this context.
 */
 
+static inline size_t hash(size_t tableSize, const char *key, size_t keyLength) {
+    size_t hash = 0x811C9DC5; // 2166136261
+    for (size_t i = 0; i < keyLength; i++) {
+        hash = (hash * 31) + key[i];
+    }
+    return hash & (tableSize - 1);
+}
+
+static inline size_t next_power_of_two(size_t n) {
+    if (n == 0)
+        return 1;
+
+    // If n is already a power of 2, return n
+    if ((n & (n - 1)) == 0)
+        return n;
+
+    // Subtract 1 to ensure correct bit setting for the next power of 2
+    n--;
+    int bits = sizeof(size_t) * 8;
+
+    // Set all bits to the right of the MSB
+    for (int shift = 1; shift < bits; shift <<= 1) {
+        n |= n >> shift;
+    }
+
+    // Add 1 to get the next power of 2
+    n++;
+
+    // For clarity, in case of overflow.
+    // If n becomes 0 after shifting, it means the next power of 2 exceeds the limit
+    if (n == 0)
+        return 0;
+
+    return n;
+}
+
 static bool str_equals_one_length(const char *s1, const char *s2, size_t s2Length) {
     assert(s1);
     assert(s2);

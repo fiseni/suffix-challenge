@@ -41,7 +41,7 @@ static size_t run(const char *partsFile, const char *masterPartsFile, const char
 
     //free(resultsBlock);
     //processor_clean();
-    //source_data_clean(data);
+    //source_data_clean(&data);
     return matchCount;
 }
 
