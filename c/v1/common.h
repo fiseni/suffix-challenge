@@ -24,63 +24,80 @@
         }                                                  \
     } while (0)
 
+typedef struct StringView {
+    const char *data;
+    size_t length;
+} StringView;
+
 static const size_t MAX_SIZE_T_VALUE = ((size_t)-1);
 
-static inline const char *str_to_upper(const char *src, size_t srcLength, char *buffer) {
+static inline StringView sv_to_upper(const StringView *src, char *dest) {
     assert(src);
-    assert(buffer);
+    assert(dest);
 
-    // We know the buffer has enough space.
-    for (size_t i = 0; i < srcLength; i++) {
-        buffer[i] = (unsigned int)(src[i] - 97) <= 25 // 25 = 122 - 97
-            ? src[i] & 0x5F
-            : src[i];
+    // We know the dest has enough space.
+    for (size_t i = 0; i < src->length; i++) {
+        dest[i] = (unsigned int)(src->data[i] - 97) <= 25 // 25 = 122 - 97
+            ? src->data[i] & 0x5F
+            : src->data[i];
     }
-    buffer[srcLength] = '\0';
-    return buffer;
+
+    return (StringView) {
+        .data = dest,
+        .length = src->length
+    };
 }
 
-static inline const char *str_remove_hyphens(const char *src, size_t srcLength, char *buffer, size_t *outLength) {
+static inline StringView sv_to_no_hyphens(StringView *src, char *dest) {
     assert(src);
-    assert(buffer);
-    assert(outLength);
+    assert(dest);
 
-    // We know the buffer has enough space.
+    // We know the dest has enough space.
     size_t j = 0;
-    for (size_t i = 0; i < srcLength; i++) {
-        if (src[i] != CHAR_HYPHEN) {
+    for (size_t i = 0; i < src->length; i++) {
+        if (src->data[i] != CHAR_HYPHEN) {
             // We know the chars are ASCII (no need to cast to unaligned char)
-            buffer[j++] = src[i];
+            dest[j++] = src->data[i];
         }
     }
-    buffer[j] = '\0';
-    *outLength = j;
-    return buffer;
+
+    return (StringView) {
+        .data = dest,
+        .length = j
+    };
 }
 
-static inline const char *str_trim_in_place(char *src, size_t srcLength, size_t *outLength) {
+static inline StringView sv_slice_suffix(const StringView *src, size_t suffixLength) {
+    return (StringView) {
+        .data = src->data + (src->length - suffixLength),
+        .length = suffixLength
+    };
+}
+
+static inline StringView sv_slice_trim(const char *src, size_t length) {
     assert(src);
-    assert(outLength);
 
     size_t start = 0;
-    while (start < srcLength && src[start] == CHAR_SPACE) {
+    while (start < length && src[start] == CHAR_SPACE) {
         start++;
     }
 
-    if (start == srcLength) {
-        src[0] = '\0';
-        *outLength = 0;
-        return src;
+    if (start == length) {
+        return (StringView) {
+            .data = src,
+            .length = 0
+        };
     }
 
-    size_t end = srcLength - 1;
+    size_t end = length - 1;
     while (end > start && src[end] == CHAR_SPACE) {
         end--;
     }
 
-    src[end + 1] = '\0';
-    *outLength = end - start + 1;
-    return &src[start];
+    return (StringView) {
+        .data = &src[start],
+        .length = end - start + 1
+    };
 }
 
 #endif

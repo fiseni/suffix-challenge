@@ -25,25 +25,25 @@ static thread_ret_t create_suffix_tables_for_masterParts(thread_arg_t arg);
 static thread_ret_t create_suffix_tables_for_masterPartsNh(thread_arg_t arg);
 static thread_ret_t create_tables_for_parts(thread_arg_t arg);
 
-size_t processor_find_mp_index(const char *partCode, size_t partCodeLength) {
-    if (partCodeLength < MIN_STRING_LENGTH) {
-        return MAX_SIZE_T_VALUE;
+const StringView *processor_find_match(const StringView *partCode) {
+    if (partCode->length < MIN_STRING_LENGTH) {
+        return NULL;
     }
+
     char buffer[MAX_STRING_LENGTH];
-    str_to_upper(partCode, partCodeLength, buffer);
+    StringView partCodeUpper = sv_to_upper(partCode, buffer);
 
-    size_t mpIndex;
-    if (htable_search(ctx.mpSuffixesTables[partCodeLength], buffer, partCodeLength, &mpIndex)) return mpIndex;
-    if (htable_search(ctx.mpNhSuffixesTables[partCodeLength], buffer, partCodeLength, &mpIndex)) return mpIndex;
-    if (htable_search(ctx.partTables[partCodeLength], buffer, partCodeLength, &mpIndex)) return mpIndex;
+    const StringView *match = htable_search(ctx.mpSuffixesTables[partCode->length], &partCodeUpper);
+    if (!match) match = htable_search(ctx.mpNhSuffixesTables[partCode->length], &partCodeUpper);
+    if (!match) match = htable_search(ctx.partTables[partCode->length], &partCodeUpper);
 
-    return MAX_SIZE_T_VALUE;
+    return match;
 }
 
 void processor_initialize(const SourceData *data) {
     ctx.data = (SourceData *)data;
-    create_tables_in_parallel(&ctx, ctx.data->masterPartsAsc, ctx.data->masterPartsAscCount, create_suffix_tables_for_masterParts, true);
-    create_tables_in_parallel(&ctx, ctx.data->masterPartsNhAsc, ctx.data->masterPartsNhAscCount, create_suffix_tables_for_masterPartsNh, false);
+    create_tables_in_parallel(&ctx, ctx.data->mpAsc, ctx.data->mpAscCount, create_suffix_tables_for_masterParts, true);
+    create_tables_in_parallel(&ctx, ctx.data->mpNhAsc, ctx.data->mpNhAscCount, create_suffix_tables_for_masterPartsNh, false);
     create_tables_in_parallel(&ctx, ctx.data->partsAsc, ctx.data->partsAscCount, create_tables_for_parts, false);
 }
 
@@ -60,14 +60,14 @@ static thread_ret_t create_suffix_tables_for_masterParts(thread_arg_t arg) {
     ThreadArgs *args = (ThreadArgs *)arg;
     size_t startIndex = args->startIndex;
     size_t length = args->length;
-    const Part *masterPartsAsc = args->ctx->data->masterPartsAsc;
-    size_t masterPartsAscCount = args->ctx->data->masterPartsAscCount;
+    const Part *mpAsc = args->ctx->data->mpAsc;
+    size_t mpAscCount = args->ctx->data->mpAscCount;
 
-    HTable *table = htable_create(masterPartsAscCount - startIndex);
-    for (size_t i = startIndex; i < masterPartsAscCount; i++) {
-        Part mp = masterPartsAsc[i];
-        const char *suffix = mp.code + (mp.codeLength - length);
-        htable_insert_if_not_exists(table, suffix, length, mp.index);
+    HTable *table = htable_create(mpAscCount - startIndex);
+    for (size_t i = startIndex; i < mpAscCount; i++) {
+        Part mp = mpAsc[i];
+        StringView suffix = sv_slice_suffix(&mp.code, length);
+        htable_insert_if_not_exists(table, &suffix, mp.codeOriginal);
     }
     args->ctx->mpSuffixesTables[length] = table;
     return 0;
@@ -77,14 +77,14 @@ static thread_ret_t create_suffix_tables_for_masterPartsNh(thread_arg_t arg) {
     ThreadArgs *args = (ThreadArgs *)arg;
     size_t startIndex = args->startIndex;
     size_t length = args->length;
-    const Part *masterPartsNhAsc = args->ctx->data->masterPartsNhAsc;
-    size_t masterPartsNhAscCount = args->ctx->data->masterPartsNhAscCount;
+    const Part *mpNhAsc = args->ctx->data->mpNhAsc;
+    size_t mpNhAscCount = args->ctx->data->mpNhAscCount;
 
-    HTable *table = htable_create(masterPartsNhAscCount - startIndex);
-    for (size_t i = startIndex; i < masterPartsNhAscCount; i++) {
-        Part mpNh = masterPartsNhAsc[i];
-        const char *suffix = mpNh.code + (mpNh.codeLength - length);
-        htable_insert_if_not_exists(table, suffix, length, mpNh.index);
+    HTable *table = htable_create(mpNhAscCount - startIndex);
+    for (size_t i = startIndex; i < mpNhAscCount; i++) {
+        Part mpNh = mpNhAsc[i];
+        StringView suffix = sv_slice_suffix(&mpNh.code, length);
+        htable_insert_if_not_exists(table, &suffix, mpNh.codeOriginal);
     }
     args->ctx->mpNhSuffixesTables[length] = table;
     return 0;
@@ -92,13 +92,13 @@ static thread_ret_t create_suffix_tables_for_masterPartsNh(thread_arg_t arg) {
 
 static thread_ret_t create_table_for_masterParts(thread_arg_t arg) {
     ThreadArgs *args = (ThreadArgs *)arg;
-    const Part *masterPartsAsc = args->ctx->data->masterPartsAsc;
-    size_t masterPartsAscCount = args->ctx->data->masterPartsAscCount;
+    const Part *mpAsc = args->ctx->data->mpAsc;
+    size_t mpAscCount = args->ctx->data->mpAscCount;
 
-    HTable *table = htable_create(masterPartsAscCount);
-    for (size_t i = 0; i < masterPartsAscCount; i++) {
-        Part mp = masterPartsAsc[i];
-        htable_insert_if_not_exists(table, mp.code, mp.codeLength, mp.index);
+    HTable *table = htable_create(mpAscCount);
+    for (size_t i = 0; i < mpAscCount; i++) {
+        Part mp = mpAsc[i];
+        htable_insert_if_not_exists(table, &mp.code, mp.codeOriginal);
     }
     args->ctx->mpTable = table;
     return 0;
@@ -115,13 +115,13 @@ static thread_ret_t create_tables_for_parts(thread_arg_t arg) {
     HTable *table = htable_create(partsAscCount - startIndex);
     for (size_t i = startIndex; i < partsAscCount; i++) {
         Part part = partsAsc[i];
-        if (part.codeLength > length) break;
+        if (part.code.length > length) break;
 
-        for (size_t suffixLength = part.codeLength - 1; suffixLength >= MIN_STRING_LENGTH; suffixLength--) {
-            const char *suffix = part.code + (part.codeLength - suffixLength);
-            size_t mpIndex;
-            if (htable_search(mpTable, suffix, suffixLength, &mpIndex)) {
-                htable_insert_if_not_exists(table, part.code, part.codeLength, mpIndex);
+        for (size_t suffixLength = part.code.length - 1; suffixLength >= MIN_STRING_LENGTH; suffixLength--) {
+            StringView suffix = sv_slice_suffix(&part.code, suffixLength);
+            const StringView *match = htable_search(mpTable, &suffix);
+            if (match) {
+                htable_insert_if_not_exists(table, &part.code, match);
                 break;
             }
         }
@@ -148,7 +148,7 @@ static void create_tables_in_parallel(Context *ctx, const Part *parts, size_t co
         startIndexByLength[length] = MAX_SIZE_T_VALUE;
     }
     for (size_t i = 0; i < count; i++) {
-        size_t length = parts[i].codeLength;
+        size_t length = parts[i].code.length;
         if (startIndexByLength[length] == MAX_SIZE_T_VALUE) {
             startIndexByLength[length] = i;
         }

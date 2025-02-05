@@ -16,26 +16,25 @@ typedef struct StringAllocationBlock {
 } StringAllocationBlock;
 
 typedef struct Part {
-    const char *code;
-    size_t codeLength;
-    size_t index;                       // Index to the original records. Also used for stable sorting.
+    StringView code;
+    StringView *codeOriginal;
 } Part;
 
 typedef struct SourceData {
-    const Part *masterPartsOriginal;    // Original master parts records, trimmed
-    size_t masterPartsOriginalCount;
+    const StringView *partCodesOriginal;    // Original parts records, trimmed
+    size_t partsCount;
 
-    const Part *masterPartsAsc;         // Sorted master parts records, uppercased
-    size_t masterPartsAscCount;
+    const StringView *mpCodesOriginal;      // Original master parts records, trimmed
+    size_t mpCount;
 
-    const Part *masterPartsNhAsc;       // Sorted master parts records, uppercased, without hyphens (Nh = no hyphens)
-    size_t masterPartsNhAscCount;
-
-    const Part *partsOriginal;          // Original parts records, trimmed
-    size_t partsOriginalCount;
-
-    const Part *partsAsc;               // Sorted parts records, uppercased
+    const Part *partsAsc;                   // Sorted parts records, uppercased
     size_t partsAscCount;
+
+    const Part *mpAsc;                      // Sorted master parts records, uppercased
+    size_t mpAscCount;
+
+    const Part *mpNhAsc;                    // Sorted master parts records, uppercased, without hyphens (Nh = no hyphens)
+    size_t mpNhAscCount;
 
     StringAllocationBlock stringBlock;
 } SourceData;

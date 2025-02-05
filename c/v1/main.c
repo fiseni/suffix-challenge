@@ -12,22 +12,21 @@ static size_t run(const char *partsFile, const char *masterPartsFile, const char
     processor_initialize(&data);
 
     // Two records per line. Each record is max 49 chars + CR + LC + separator
-    char *resultsBlock = allocator_alloc((MAX_STRING_LENGTH * 2 + 3) * data.partsOriginalCount);
+    char *resultsBlock = allocator_alloc((MAX_STRING_LENGTH * 2 + 3) * data.partsCount);
     size_t resultsBlockIndex = 0;
     size_t matchCount = 0;
 
-    for (size_t i = 0; i < data.partsOriginalCount; i++) {
-        const Part partOriginal = data.partsOriginal[i];
-        size_t mpIndex = processor_find_mp_index(partOriginal.code, partOriginal.codeLength);
+    for (size_t i = 0; i < data.partsCount; i++) {
+        StringView partCodeOriginal = data.partCodesOriginal[i];
+        const StringView *match = processor_find_match(&partCodeOriginal);
 
-        memcpy(resultsBlock + resultsBlockIndex, partOriginal.code, partOriginal.codeLength);
-        resultsBlockIndex += partOriginal.codeLength;
+        memcpy(resultsBlock + resultsBlockIndex, partCodeOriginal.data, partCodeOriginal.length);
+        resultsBlockIndex += partCodeOriginal.length;
         resultsBlock[resultsBlockIndex++] = CHAR_SEMICOLON;
 
-        if (mpIndex != MAX_SIZE_T_VALUE) {
-            const Part mpOriginal = data.masterPartsOriginal[mpIndex];
-            memcpy(resultsBlock + resultsBlockIndex, mpOriginal.code, mpOriginal.codeLength);
-            resultsBlockIndex += mpOriginal.codeLength;
+        if (match) {
+            memcpy(resultsBlock + resultsBlockIndex, match->data, match->length);
+            resultsBlockIndex += match->length;
             matchCount++;
         }
 

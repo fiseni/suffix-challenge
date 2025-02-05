@@ -7,10 +7,10 @@
 * It is tailored for our scenario and it is safe to use only within this context.
 */
 
-static inline size_t hash(size_t tableSize, const char *key, size_t keyLength) {
+static inline size_t hash(size_t tableSize, const StringView *key) {
     size_t hash = 0x811C9DC5; // 2166136261
-    for (size_t i = 0; i < keyLength; i++) {
-        hash = (hash * 31) + key[i];
+    for (size_t i = 0; i < key->length; i++) {
+        hash = (hash * 31) + key->data[i];
     }
     return hash & (tableSize - 1);
 }
@@ -43,12 +43,12 @@ static inline size_t next_power_of_two(size_t n) {
     return n;
 }
 
-static bool str_equals_one_length(const char *s1, const char *s2, size_t s2Length) {
-    assert(s1);
-    assert(s2);
-
-    for (size_t i = 0; i < s2Length; i++) {
-        if (s1[i] == '\0' || s1[i] != s2[i]) {
+static bool str_equals(const StringView *s1, const StringView *s2) {
+    if (s1->length != s2->length) {
+        return false;
+    }
+    for (size_t i = 0; i < s1->length && i < s2->length; i++) {
+        if (s1->data[i] != s2->data[i]) {
             return false;
         }
     }
@@ -79,31 +79,29 @@ HTable *htable_create(size_t size) {
 }
 
 // Used to avoid re-computing the hash value.
-static bool search_internal(const HTable *table, const char *key, size_t keyLength, size_t index, size_t *outValue) {
+static const StringView *search_internal(const HTable *table, const StringView *key, size_t index) {
     Entry *entry = table->buckets[index];
     while (entry) {
-        if (str_equals_one_length(entry->key, key, keyLength)) {
-            *outValue = entry->value;
-            return true;
+        if (str_equals(&entry->key, key)) {
+            return entry->value;
         }
         entry = entry->next;
     }
-    return false;
+    return NULL;
 }
 
-bool htable_search(const HTable *table, const char *key, size_t keyLength, size_t *outValue) {
+const StringView *htable_search(const HTable *table, const StringView *key) {
     if (table == NULL) {
         return false;
     }
 
-    size_t index = hash(table->size, key, keyLength);
-    return search_internal(table, key, keyLength, index, outValue);
+    size_t index = hash(table->size, key);
+    return search_internal(table, key, index);
 }
 
-void htable_insert_if_not_exists(HTable *table, const char *key, size_t keyLength, size_t value) {
-    size_t index = hash(table->size, key, keyLength);
-    size_t existing_value;
-    if (search_internal(table, key, keyLength, index, &existing_value)) {
+void htable_insert_if_not_exists(HTable *table, const StringView *key, const StringView *value) {
+    size_t index = hash(table->size, key);
+    if (search_internal(table, key, index)) {
         return;
     }
 
@@ -112,7 +110,7 @@ void htable_insert_if_not_exists(HTable *table, const char *key, size_t keyLengt
     assert(table->blockEntriesIndex < table->blockEntriesCount);
 
     Entry *new_entry = &table->blockEntries[table->blockEntriesIndex++];
-    new_entry->key = key;
+    new_entry->key = *key;
     new_entry->value = value;
     new_entry->next = table->buckets[index];
     table->buckets[index] = new_entry;

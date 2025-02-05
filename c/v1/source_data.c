@@ -34,11 +34,11 @@ void source_data_clean(const SourceData *data) {
     free((void *)data->stringBlock.blockParts);
     free((void *)data->stringBlock.blockMasterParts);
 
-    free((void *)data->masterPartsOriginal);
-    free((void *)data->masterPartsAsc);
-    free((void *)data->masterPartsNhAsc);
-    free((void *)data->partsOriginal);
+    free((void *)data->partCodesOriginal);
+    free((void *)data->mpCodesOriginal);
     free((void *)data->partsAsc);
+    free((void *)data->mpAsc);
+    free((void *)data->mpNhAsc);
 }
 
 static thread_ret_t build_parts(thread_arg_t arg) {
@@ -50,8 +50,8 @@ static thread_ret_t build_parts(thread_arg_t arg) {
     size_t contentSize;
     char *block = read_file(partsPath, 2, &contentSize, &lineCount);
 
-    Part *partsOriginal = allocator_alloc(lineCount * sizeof(*partsOriginal));
-    CHECK_ALLOC(partsOriginal);
+    StringView *partCodesOriginal = allocator_alloc(lineCount * sizeof(*partCodesOriginal));
+    CHECK_ALLOC(partCodesOriginal);
     Part *partsAsc = allocator_alloc(lineCount * sizeof(*partsAsc));
     CHECK_ALLOC(partsAsc);
 
@@ -62,23 +62,15 @@ static thread_ret_t build_parts(thread_arg_t arg) {
     for (size_t i = 0; i < contentSize; i++) {
         if (block[i] != '\n') continue;
 
-        block[i] = '\0';
         size_t length = i - blockIndex;
-        if (i > 0 && block[i - 1] == '\r') {
-            block[i - 1] = '\0';
-            length--;
-        }
-        assert(partsIndex < lineCount);
+        if (i > 0 && block[i - 1] == '\r') length--;
 
-        const char *trimmedRecord = str_trim_in_place(&block[blockIndex], length, &length);
-        partsOriginal[partsIndex].code = trimmedRecord;
-        partsOriginal[partsIndex].codeLength = length;
-        partsOriginal[partsIndex].index = partsIndex;
+        StringView trimmedRecord = sv_slice_trim(block + blockIndex, length);
+        partCodesOriginal[partsIndex] = trimmedRecord;
 
-        partsAsc[partsIndex].code = str_to_upper(trimmedRecord, length, &block[blockUpperIndex]);
-        partsAsc[partsIndex].codeLength = length;
-        partsAsc[partsIndex].index = partsIndex;
-        blockUpperIndex += length + 1; // +1 for null terminator
+        partsAsc[partsIndex].code = sv_to_upper(&trimmedRecord, &block[blockUpperIndex]);
+        partsAsc[partsIndex].codeOriginal = &partCodesOriginal[partsIndex];
+        blockUpperIndex += trimmedRecord.length;
 
         partsIndex++;
         blockIndex = i + 1;
@@ -86,8 +78,8 @@ static thread_ret_t build_parts(thread_arg_t arg) {
 
     merge_sort_by_code_length(partsAsc, partsIndex);
 
-    data->partsOriginal = partsOriginal;
-    data->partsOriginalCount = partsIndex;
+    data->partCodesOriginal = partCodesOriginal;
+    data->partsCount = partsIndex;
     data->partsAsc = partsAsc;
     data->partsAscCount = partsIndex;
     data->stringBlock.blockParts = block;
@@ -103,8 +95,8 @@ static thread_ret_t build_masterParts(thread_arg_t arg) {
     size_t contentSize;
     char *block = read_file(masterPartsPath, 3, &contentSize, &lineCount);
 
-    Part *mpOriginal = allocator_alloc(lineCount * sizeof(*mpOriginal));
-    CHECK_ALLOC(mpOriginal);
+    StringView *mpCodesOriginal = allocator_alloc(lineCount * sizeof(*mpCodesOriginal));
+    CHECK_ALLOC(mpCodesOriginal);
     Part *mpAsc = allocator_alloc(lineCount * sizeof(*mpAsc));
     CHECK_ALLOC(mpAsc);
     Part *mpNhAsc = allocator_alloc(lineCount * sizeof(*mpNhAsc));
@@ -120,33 +112,25 @@ static thread_ret_t build_masterParts(thread_arg_t arg) {
         if (block[i] == CHAR_HYPHEN) containsHyphens = true;
         if (block[i] != '\n') continue;
 
-        block[i] = '\0';
         size_t length = i - blockIndex;
-        if (i > 0 && block[i - 1] == '\r') {
-            block[i - 1] = '\0';
-            length--;
-        }
-        assert(mpIndex < lineCount);
+        if (i > 0 && block[i - 1] == '\r') length--;
 
-        const char *trimmedRecord = str_trim_in_place(&block[blockIndex], length, &length);
-        if (length >= MIN_STRING_LENGTH) {
-            mpOriginal[mpIndex].code = trimmedRecord;
-            mpOriginal[mpIndex].codeLength = length;
-            mpOriginal[mpIndex].index = mpIndex;
+        StringView trimmedRecord = sv_slice_trim(block + blockIndex, length);
 
-            const char *upperRecord = str_to_upper(trimmedRecord, length, &block[blockIndexExtra]);
+        if (trimmedRecord.length >= MIN_STRING_LENGTH) {
+            mpCodesOriginal[mpIndex] = trimmedRecord;
+
+            StringView upperRecord = sv_to_upper(&trimmedRecord, &block[blockIndexExtra]);
             mpAsc[mpIndex].code = upperRecord;
-            mpAsc[mpIndex].codeLength = length;
-            mpAsc[mpIndex].index = mpIndex;
-            blockIndexExtra += length + 1; // +1 for null terminator
+            mpAsc[mpIndex].codeOriginal = &mpCodesOriginal[mpIndex];
+            blockIndexExtra += upperRecord.length;
 
             if (containsHyphens) {
-                size_t codeNhLength;
-                mpNhAsc[mpNhIndex].code = str_remove_hyphens(upperRecord, length, &block[blockIndexExtra], &codeNhLength);
-                mpNhAsc[mpNhIndex].codeLength = codeNhLength;
-                mpNhAsc[mpNhIndex].index = mpIndex;
+                StringView nhRecord = sv_to_no_hyphens(&upperRecord, &block[blockIndexExtra]);
+                mpNhAsc[mpNhIndex].code = nhRecord;
+                mpNhAsc[mpNhIndex].codeOriginal = &mpCodesOriginal[mpIndex];
                 mpNhIndex++;
-                blockIndexExtra += codeNhLength + 1; // +1 for null terminator
+                blockIndexExtra += nhRecord.length;
             }
 
             mpIndex++;
@@ -158,12 +142,12 @@ static thread_ret_t build_masterParts(thread_arg_t arg) {
     merge_sort_by_code_length(mpAsc, mpIndex);
     merge_sort_by_code_length(mpNhAsc, mpNhIndex);
 
-    data->masterPartsOriginal = mpOriginal;
-    data->masterPartsOriginalCount = mpIndex;
-    data->masterPartsAsc = mpAsc;
-    data->masterPartsAscCount = mpIndex;
-    data->masterPartsNhAsc = mpNhAsc;
-    data->masterPartsNhAscCount = mpNhIndex;
+    data->mpCodesOriginal = mpCodesOriginal;
+    data->mpCount= mpIndex;
+    data->mpAsc = mpAsc;
+    data->mpAscCount = mpIndex;
+    data->mpNhAsc = mpNhAsc;
+    data->mpNhAscCount = mpNhIndex;
     data->stringBlock.blockMasterParts = block;
     return 0;
 }
@@ -237,7 +221,7 @@ static void merge(Part *array, Part *tempArray, size_t left, size_t mid, size_t 
     size_t i = left, j = mid + 1, k = left;
 
     while (i <= mid && j <= right) {
-        if (array[i].codeLength <= array[j].codeLength) {
+        if (array[i].code.length <= array[j].code.length) {
             tempArray[k++] = array[i++];
         }
         else {

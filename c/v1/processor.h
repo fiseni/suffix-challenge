@@ -3,7 +3,7 @@
 
 #include "source_data.h"
 
-size_t processor_find_mp_index(const char *partNumber, size_t partCodeLength);
+const StringView *processor_find_match(const StringView *partCode);
 void processor_initialize(const SourceData *data);
 void processor_clean();
 
