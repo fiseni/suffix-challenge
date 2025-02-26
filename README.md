@@ -71,11 +71,11 @@ Everyone is welcome to participate in the challenge.
 
 I'm running the benchmarks locally for now (Intel i7-11700K @ 3.60GHz). We may automate it in the future if necessary. The results are as follows:
 
-| Command | Mean [s] | Min [s] | Max [s] |
+| Command | Mean [ms] | Min [ms] | Max [ms] |
 |:---|---:|---:|---:|
 | `C v1` | 300.7 ± 3.0 | 297.4 | 305.5 |
 | `C# v2 AOT` | 432.9 ± 19.5 | 414.7 | 476.6 |
 | `C# v2` | 711.8 ± 9.9 | 701.3 | 731.4 |
-| `C# v1 AOT` | 1.374 ± 0.006 | 1.368 | 1.388 |
-| `C# v1` | 1.502 ± 0.038 | 1.449 | 1.565 |
+| `C# v1 AOT` | 1374 ± 0.006 | 1368 | 1388 |
+| `C# v1` | 1502 ± 0.038 | 1449 | 1565 |
 
